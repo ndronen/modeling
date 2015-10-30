@@ -4,15 +4,6 @@ import theano.tensor as T
 import theano
 
 class Model(object):
-    def build_input_var(self):
-        raise NotImplementedError()
-
-    def build_target_var(self):
-        raise NotImplementedError()
-
-    def build_updates(self):
-        raise NotImplementedError()
-
     def __init__(self, args):
         for k,v in vars(args).iteritems():
             self.__dict__[k] = v
@@ -46,6 +37,18 @@ class Model(object):
 
         self.pred_fun = theano.function([self.input_var], self.test_output)
 
+    def build_input_var(self):
+        raise NotImplementedError()
+
+    def build_target_var(self):
+        raise NotImplementedError()
+
+    def build_updates(self):
+        raise NotImplementedError()
+
+    def build_model(self):
+        raise NotImplementedError()
+
     def fit(self, data, target):
         return self.train_fn(data, target)
 
@@ -68,5 +71,11 @@ class Model(object):
 class Classifier(Model):
     def build_loss(self, output):
         loss = lasagne.objectives.categorical_crossentropy(
+                output, self.target_var)
+        return loss.mean()
+
+class Regressor(Model):
+    def build_loss(self, output):
+        loss = lasagne.objectives.squared_error(
                 output, self.target_var)
         return loss.mean()
