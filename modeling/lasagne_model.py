@@ -1,3 +1,4 @@
+import numpy as np
 import lasagne
 import theano.tensor as T
 import theano
@@ -55,6 +56,14 @@ class Model(object):
     def predict(self, data):
         pred = self.pred_fn(data)
         return pred
+
+    def save_weights(self, path):
+        np.savez(path, *lasagne.layers.get_all_param_values(self.model))
+
+    def load_weights(self, path):
+        with np.load(path) as f:
+            params = [f['arr_%d' % i] for i in range(len(f.files))]
+            lasagne.layers.set_all_param_values(self.model, params)
 
 class Classifier(Model):
     def build_loss(self, output):
