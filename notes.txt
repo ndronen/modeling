@@ -1,0 +1,133 @@
+---------------------------------------------------------------------------
+Given our current architecture, how helpful is increasing the training set size?
+---------------------------------------------------------------------------
+
+    Embedding size: 50
+    Number of convolutional filters: 500
+        Filter width: 4
+        Max filter norm: 1 (might be too small, considering filter width)
+    Hidden fully-connected layers: 3 
+    Fully-connected layer sizes: 1000, 1000, 500
+    Learning rate: 0.03
+    Momentum: 0.9
+    Weight decay: 0
+
+Train on 1m, validate on 200k:
+
+    acc: 0.1336 - val_acc: 0.2124 - val_f1: 0.12
+    acc: 0.2628 - val_acc: 0.3049 - val_f1: 0.21
+    acc: 0.3093 - val_acc: 0.3476 - val_f1: 0.26
+    acc: 0.3571 - val_acc: 0.3972 - val_f1: 0.33
+    acc: 0.3913 - val_acc: 0.4225 - val_f1: 0.36
+    acc: 0.4091 - val_acc: 0.4312 - val_f1: 0.38
+
+Train on 2m, validate on 200k:
+
+    acc: 0.1909 - val_acc: 0.3048 - val_f1: 0.22
+    acc: 0.3421 - val_acc: 0.4070 - val_f1: 0.34
+    acc: 0.4028 - val_acc: 0.4362 - val_f1: 0.38
+    acc: 0.4208 - val_acc: 0.4464 - val_f1: 0.40
+    acc: 0.4293 - val_acc: 0.4522 - val_f1: 0.40
+
+Train on 4m, validate on 200k:
+
+    acc: 0.2616 - val_acc: 0.4063 - val_f1: 0.25
+    acc: 0.4095 - val_acc: 0.4456 - val_f1: 0.33
+    acc: 0.4315 - val_acc: 0.4573 - val_f1: 0.35
+    acc: 0.4398 - val_acc: 0.4630 - val_f1: 0.37
+    acc: 0.4448 - val_acc: 0.4658 - val_f1: 0.38
+    acc: 0.4484 - val_acc: 0.4673 - val_f1: 0.39
+    acc: 0.4509 - val_acc: 0.4693 - val_f1: 0.39
+
+Loosen max norm constraint on word embeddings to 2, use class weights
+to help model perform better on less frequent classes:
+
+    Embedding size: 50
+    Number of convolutional filters: 500
+        Filter width: 4
+    Hidden fully-connected layers:
+        Number: 3
+        Fully-connected layer sizes: 1000, 1000, 500
+    Learning rate: 0.1
+    Momentum: 0.9
+    Decay: 0.000000001
+
+Train on 4m, validate on 200k:
+    acc: 0.3606 - val_acc: 0.4497 - val_f1: 0.40
+    acc: 0.4343 - val_acc: 0.4619 - val_f1: 0.42
+    acc: 0.4366 - val_acc: 0.4585 - val_f1: 0.42
+    acc: 0.4362 - val_acc: 0.4624 - val_f1: 0.42
+    acc: 0.4335 - val_acc: 0.4553 - val_f1: 0.41
+    acc: 0.4316 - val_acc: 0.4541 - val_f1: 0.41
+
+---------------------------------------------------------------------------
+What happens when we use an LSTM network instead of a temporal
+convolutional network?
+---------------------------------------------------------------------------
+
+    Embedding size: 50
+    Number of LSTM layers: 3
+    Number of units in LSTM layers: 64
+    Dropout after each LSTM layer: 0.2
+    Learning rate: 0.1
+    Momentum: 0.9
+    Decay: 0
+    Gradient truncation: -1 (classical BPTT)
+    Norm clipping threshold: 0 (no clipping)
+
+Train on 4m, validate on 200k:
+    acc: 0.2791 - val_acc: 0.3589 - val_f1: 0.29
+    acc: 0.4383 - val_acc: 0.5068 - val_f1: 0.47
+    acc: 0.4863 - val_acc: 0.5203 - val_f1: 0.49
+    acc: 0.5251 - val_acc: 0.5438 - val_f1: 0.51
+    acc: 0.5461 - val_acc: 0.5613 - val_f1: 0.53
+    acc: 0.5614 - val_acc: 0.5697 - val_f1: 0.55
+    acc: 0.5736 - val_acc: 0.5744 - val_f1: 0.56
+    acc: 0.5825 - val_acc: 0.5800 - val_f1: 0.56
+
+New configuration (with clipping)
+
+    Embedding size: 50
+    Number of LSTM layers: 3
+    Number of units in LSTM layers: 64
+    Dropout after each LSTM layer: 0.2
+    Learning rate: 0.1
+    Momentum: 0.9
+    Decay: 0
+    Gradient truncation: -1 (classical BPTT)
+    Norm clipping threshold: 5 (no clipping)
+
+Train on 8m, validate on 200k (here one epoch is 100k examples; I had
+to split up the 8m examples into separate files, and each gets its
+own epoch):
+
+    acc: 0.4823 - val_acc: 0.491425
+
+New configuration (with clipping)
+
+    Embedding size: 50
+    Number of LSTM layers: 4
+    Number of units in LSTM layers: 500
+    Dropout after each LSTM layer: 0.2
+    Learning rate: 0.1
+    Momentum: 0.9
+    Decay: 0
+    Gradient truncation: -1 (classical BPTT)
+    Norm clipping threshold: 5 (no clipping)
+
+Train on 16m, validate on 200k:
+
+---------------------------------------------------------------------------
+After creating a balanced data set (which excluded 'about', because it
+is so less frequent than the other prepositions), I may have discovered
+that training a model with intra-minibatch contrasting cases -- that is,
+with every sentence from the corpus being accompanied by an example that
+is the same sentence with an error introduced -- is essential to being
+able to train this model.
+---------------------------------------------------------------------------
+
+---------------------------------------------------------------------------
+Multi-task learning; change train.py to allow multiple --target
+arguments ... or change the architecture so the targets used are
+determined by model.json and model.py?
+---------------------------------------------------------------------------

@@ -1,0 +1,22 @@
+{
+    "embedding_weights": "data/prepositions-weights.npy",
+    "train_embeddings": false,
+    "regularization_layer": "normalization",
+    "n_word_dims": 300,
+    "border_mode": "valid",
+    "use_difference": true,
+    "n_filters": 1000,
+    "filter_width": 3,
+    "loss": "categorical_crossentropy",
+    "patience": 30,
+    "batch_size": 128,
+    "optimizer": "SGD",
+    "learning_rate": 0.001,
+    "momentum": 0.9,
+    "decay": 0.0,
+    "embedding_max_norm": 1000,
+    "filter_max_norm": 1000,
+    "dense_max_norm": 1000,
+    "l2_penalty": 0.0,
+    "clipnorm": 0
+}
