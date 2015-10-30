@@ -1,14 +1,16 @@
 import lasagne
 import theano.tensor as T
+import theano
 
 class Model(object):
     def build_input_var(self):
-        # TODO: make this abstract.
-        return T.dmatrix('input')
+        raise NotImplementedError()
 
     def build_target_var(self):
-        # TODO: make this abstract.
-        return T.ivector('target')
+        raise NotImplementedError()
+
+    def build_updates(self):
+        raise NotImplementedError()
 
     def __init__(self, args):
         for k,v in vars(args).iteritems():
@@ -18,33 +20,42 @@ class Model(object):
         self.target_var = self.build_target_var()
 
         self.model = self.build_model(self.input_var)
-        self.output = lasagne.layers.get_output(self.model)
-        # TODO: implement build_loss.
-        self.loss = lasagne.objectives.categorical_crossentropy(
-                self.output, self.target_var)
 
-        self.params = lasagne.layers.get_all_params(network, trainable=True)
-        # TODO: build updates.
-        self.updates = lasagne.updates.nesterov_momentum(
-            self.loss, self.params, learning_rate=0.01, momentum=0.9)
+        self.train_output = lasagne.layers.get_output(self.model)
+        self.train_loss = self.build_loss(self.train_output)
+        self.params = lasagne.layers.get_all_params(self.model, trainable=True)
+        self.updates = self.build_updates()
 
-        # Theano variables for operations on held-out data.
-        self.predict_var = lasagne.layers.get_output(self.model,
+        self.test_output = lasagne.layers.get_output(self.model,
                 deterministic=True)
-        # TODO: build predict loss.
-        self.predict_loss = lasagne.objectives.categorical_crossentropy(
-                self.predict_var, self.target_var)
-        self.predict_loss = self.predict_loss.mean()
-        self.predict_accuracy = T.eq(
-                T.argmax(self.predict_var, axis=1), self.target_var)
-        self.predict_accuracy = T.mean(
-                self.predict_accuracy_var, dtype=theano.config.floatX)
+        self.test_loss = self.build_loss(self.test_output)
+        self.test_accuracy = T.eq(
+                T.argmax(self.test_output, axis=1), self.target_var)
+        self.test_accuracy = T.mean(
+                self.test_accuracy, dtype=theano.config.floatX)
 
         self.train_fn = theano.function(
                 [self.input_var, self.target_var],
-                self.loss,
+                self.train_loss,
                 updates=self.updates)
 
         self.val_fn = theano.function(
                 [self.input_var, self.target_var],
-                [self.predict_loss, self.predict_accuracy])
+                [self.test_loss, self.test_accuracy])
+
+        self.pred_fun = theano.function([self.input_var], self.test_output)
+
+    def fit(self, data, target):
+        return self.train_fn(data, target)
+
+    def evaluate(self, data, target):
+        return self.val_fun(data, target)
+
+    def predict(self, data):
+        return self.pred_fun(data)
+
+class Classifier(Model):
+    def build_loss(self, output):
+        loss = lasagne.objectives.categorical_crossentropy(
+                output, self.target_var)
+        return loss.mean()
