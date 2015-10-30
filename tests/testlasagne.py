@@ -108,17 +108,30 @@ class TestLasagneClassifier(unittest.TestCase):
         n_epochs = 5
         batch_size = 256
         for epoch in six.moves.range(n_epochs):
-            train_loss = 0
-            m = 0
             for j in six.moves.range(0, len(X_train), batch_size):
-                m += len(X_train[j:j+batch_size])
-                train_loss += model.fit(X_train[j:j+batch_size], y_train[j:j+batch_size])
-            print('epoch {epoch:04d} training loss {avg:.04f}'.format(
-                epoch=epoch+1, avg=train_loss/len(X_train)))
-
-            val_loss, val_acc = model.evaluate(X_val, y_val)
-            print('epoch {epoch:04d} validation loss {val_loss:.04f} accuracy {val_acc:.04f}'.format(
-                epoch=epoch+1, val_loss=val_loss.item(), val_acc=val_acc.item()))
+                model.fit(X_train[j:j+batch_size], y_train[j:j+batch_size])
+        val_loss, val_acc = model.evaluate(X_val, y_val)
+        self.assertTrue(val_acc > 0.9)
 
     def test_save_load(self):
-        raise NotImplementedError()
+        weights_file = '/tmp/model.npz'
+
+        args = {}
+        config = modeling.utils.ModelConfig(**args)
+        rng1 = np.random.RandomState(17)
+        lasagne.random.set_rng(rng1)
+        model1 = TestModel(config)
+        model1.save_weights(weights_file)
+
+        rng2 = np.random.RandomState(23)
+        lasagne.random.set_rng(rng2)
+        model2 = TestModel(config)
+        model2.load_weights(weights_file)
+
+        weights1 = lasagne.layers.get_all_param_values(model1.model)
+        weights2 = lasagne.layers.get_all_param_values(model2.model)
+
+        for i in six.moves.range(len(weights1)):
+            w1 = weights1[i]
+            w2 = weights2[i]
+            self.assertTrue(np.allclose(w1, w2))
