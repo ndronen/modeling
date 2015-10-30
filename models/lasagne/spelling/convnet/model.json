@@ -1,0 +1,21 @@
+{
+    "n_word_dims": 50,
+    "use_difference": false,
+    "n_filters": 1000,
+    "filter_width": 4,
+    "loss": "categorical_crossentropy",
+    "patience": 400,
+    "batch_size": 128,
+    "optimizer": "Adagrad",
+    "learning_rate": 0.1,
+    "momentum": 0.9,
+    "decay": 0.0,
+    "embedding_max_norm": 1000,
+    "filter_max_norm": 1000,
+    "dense_max_norm": 1000,
+    "l2_penalty": 0.0,
+    "clipnorm": 0,
+    "regularization_layer": "dropout",
+    "dropout_p_conv": 0.1,
+    "dropout_p": 0.5
+}
