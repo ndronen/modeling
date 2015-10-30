@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
+import six
 import sys
 import os
 import numpy as np
@@ -89,19 +90,9 @@ class TestModel(modeling.lasagne_model.Classifier):
                 nonlinearity=lasagne.nonlinearities.rectify,
                 W=lasagne.init.GlorotUniform())
 
-        l_hid1_drop = lasagne.layers.DropoutLayer(l_hid1, p=0.5)
-
-        # Another 800-unit layer.
-        l_hid2 = lasagne.layers.DenseLayer(
-                l_hid1_drop, num_units=800,
-                nonlinearity=lasagne.nonlinearities.rectify)
-
-        # 50% dropout again.
-        l_hid2_drop = lasagne.layers.DropoutLayer(l_hid2, p=0.5)
-
         # Finally, we'll add the fully-connected output layer, of 10 softmax units:
         l_out = lasagne.layers.DenseLayer(
-                l_hid2_drop, num_units=10,
+                l_hid1, num_units=10,
                 nonlinearity=lasagne.nonlinearities.softmax)
 
         # Each layer is linked to its incoming layer(s), so we only need to pass
@@ -114,15 +105,23 @@ class TestLasagneClassifier(unittest.TestCase):
         config = modeling.utils.ModelConfig(**args)
         model = TestModel(config)
         X_train, y_train, X_val, y_val, X_test, y_test = load_mnist()
-        '''
-        nb_examples = 2
-        maxlen = 7
-        output_dim = nb_word_dim = 5
-        x = np.random.normal(size=(nb_examples, maxlen, output_dim)).astype(np.float32)
-        expected = x[:, 1:, :] - x[:, 0:x.shape[1]-1, :]
-        X = T.tensor3('X')
-        retval = TemporalDifference()._get_output(X)
-        f = function([X], retval)
-        actual = f(x)
-        self.assertTrue(np.allclose(actual, expected))
-        '''
+        n_epochs = 10
+        batch_size = 16
+        for epoch in six.moves.range(n_epochs):
+            train_loss = 0
+            m = 0
+            for j in six.moves.range(0, len(X_train), batch_size):
+                m += len(X_train[j:j+batch_size])
+                train_loss += model.fit(X_train[j:j+batch_size], y_train[j:j+batch_size])
+            print('epoch {epoch:04d} training loss {avg:.04f}'.format(
+                epoch=epoch+1, avg=train_loss/len(X_train)))
+
+            for j in six.moves.range(0, len(X_train), batch_size):
+                m += len(X_train[j:j+batch_size])
+                train_loss += model.evaluate(X_train[j:j+batch_size], y_train[j:j+batch_size])
+            print('epoch {epoch:04d} training loss {avg:.04f}'.format(
+                epoch=epoch+1, avg=train_loss/len(X_train)))
+
+            val_loss, val_acc = model.evaluate(X_val, y_val)
+            print('epoch {epoch:04d} validation loss {val_loss:.04f} accuracy {val_acc:.04f}'.format(
+                epoch=epoch+1, val_loss=val_loss.item(), val_acc=val_acc.item()))

@@ -49,10 +49,12 @@ class Model(object):
         return self.train_fn(data, target)
 
     def evaluate(self, data, target):
-        return self.val_fun(data, target)
+        output = self.val_fn(data, target)
+        return output[0], output[1]
 
     def predict(self, data):
-        return self.pred_fun(data)
+        pred = self.pred_fn(data)
+        return pred
 
 class Classifier(Model):
     def build_loss(self, output):
