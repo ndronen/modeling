@@ -105,8 +105,8 @@ class TestLasagneClassifier(unittest.TestCase):
         config = modeling.utils.ModelConfig(**args)
         model = TestModel(config)
         X_train, y_train, X_val, y_val, X_test, y_test = load_mnist()
-        n_epochs = 10
-        batch_size = 16
+        n_epochs = 5
+        batch_size = 256
         for epoch in six.moves.range(n_epochs):
             train_loss = 0
             m = 0
@@ -116,12 +116,9 @@ class TestLasagneClassifier(unittest.TestCase):
             print('epoch {epoch:04d} training loss {avg:.04f}'.format(
                 epoch=epoch+1, avg=train_loss/len(X_train)))
 
-            for j in six.moves.range(0, len(X_train), batch_size):
-                m += len(X_train[j:j+batch_size])
-                train_loss += model.evaluate(X_train[j:j+batch_size], y_train[j:j+batch_size])
-            print('epoch {epoch:04d} training loss {avg:.04f}'.format(
-                epoch=epoch+1, avg=train_loss/len(X_train)))
-
             val_loss, val_acc = model.evaluate(X_val, y_val)
             print('epoch {epoch:04d} validation loss {val_loss:.04f} accuracy {val_acc:.04f}'.format(
                 epoch=epoch+1, val_loss=val_loss.item(), val_acc=val_acc.item()))
+
+    def test_save_load(self):
+        raise NotImplementedError()
