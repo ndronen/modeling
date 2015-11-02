@@ -575,6 +575,7 @@ def build_dataset(token_seq, token_seq_index, term_to_index, char_to_index, max_
                 add_chars_to_array(n, trailing_contexts, trailing)
 
                 correct_tokens.append(token)
+                corrections[n] = term_to_index[token]
                 corrupt_tokens.append(corrupt_token)
                 error_types.append(corruptor.__name__)
                 context_ids.append(i)
