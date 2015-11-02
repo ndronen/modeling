@@ -4,14 +4,13 @@ import theano.tensor as T
 import theano
 
 class Model(object):
-    def __init__(self, args):
-        for k,v in vars(args).iteritems():
-            self.__dict__[k] = v
+    def __init__(self, config):
+        self.config = config
 
         self.input_var = self.build_input_var()
         self.target_var = self.build_target_var()
 
-        self.model = self.build_model(self.input_var)
+        self.model = self.build_model()
 
         self.train_output = lasagne.layers.get_output(self.model)
         self.train_loss = self.build_loss(self.train_output)
