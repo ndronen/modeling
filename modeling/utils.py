@@ -25,7 +25,7 @@ class ModelConfig:
         self.__dict__.update(entries)
 
     def __repr__(self):
-        return str(vars(self.dict))
+        return str(vars(self))
 
 class LoggerWriter:
     def __init__(self, level):
