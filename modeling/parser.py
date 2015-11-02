@@ -29,6 +29,10 @@ def build_keras():
     parser = build()
     return parser
 
+def build_lasagne():
+    parser = build()
+    return parser
+
 def build():
     parser = argparse.ArgumentParser(
             description='Train a model.')
