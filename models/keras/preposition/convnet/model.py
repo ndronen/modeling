@@ -23,64 +23,67 @@ def build_model(args):
         W = np.load(args.embedding_weights)
         if args.train_embeddings is True or args.train_embeddings == 'true':
             model.add(Embedding(args.n_vocab, args.n_word_dims,
-                weights=[W],
+                weights=[W], input_length=args.input_width,
                 W_constraint=maxnorm(args.embedding_max_norm)))
         else:
             model.add(ImmutableEmbedding(args.n_vocab, args.n_word_dims,
-                weights=[W]))
+                weights=[W], input_length=args.input_width))
     else:
         model.add(Embedding(args.n_vocab, args.n_word_dims,
-            W_constraint=maxnorm(args.embedding_max_norm)))
+            W_constraint=maxnorm(args.embedding_max_norm),
+            weights=[W], input_length=args.input_width))
 
     if args.use_difference:
         model.add(TemporalDifference())
 
-    model.add(Convolution1D(args.n_word_dims, args.n_filters, args.filter_width,
+    model.add(Convolution1D(args.n_filters, args.filter_width,
         W_constraint=maxnorm(args.filter_max_norm),
         border_mode=args.border_mode,
-        W_regularizer=l2(args.l2_penalty)))
+        W_regularizer=l2(args.l2_penalty),
+        activation='relu'))
     #if 'normalization' in args.regularization_layer:
     #    model.add(BatchNormalization(
     #        (args.input_width-args.filter_width+1, args.n_filters)))
-    model.add(Activation('relu'))
+    #model.add(Activation('relu'))
 
     model.add(MaxPooling1D(
         pool_length=args.input_width - args.filter_width + 1,
-        stride=None, ignore_border=False))
+        stride=1, ignore_border=False))
     model.add(Flatten())
     if 'dropout' in args.regularization_layer:
         model.add(Dropout(args.dropout_p_conv))
     if 'normalization' in args.regularization_layer:
         model.add(BatchNormalization((args.n_filters,)))
 
-    model.add(Dense(args.n_filters, 2*args.n_filters,
-        W_regularizer=l2(args.l2_penalty)))
-    model.add(Activation('relu'))
+    model.add(Dense(2*args.n_filters,
+            W_regularizer=l2(args.l2_penalty),
+            activation='relu'))
     if 'dropout' in args.regularization_layer:
         model.add(Dropout(args.dropout_p))
     if 'normalization' in args.regularization_layer:
         model.add(BatchNormalization((2*args.n_filters,)))
 
-    model.add(Dense(2*args.n_filters, 2*args.n_filters))
-    model.add(Activation('relu'))
+    model.add(Dense(2*args.n_filters,
+            W_regularizer=l2(args.l2_penalty),
+            activation='relu'))
     if 'dropout' in args.regularization_layer:
         model.add(Dropout(args.dropout_p))
     if 'normalization' in args.regularization_layer:
         model.add(BatchNormalization((2*args.n_filters,)))
 
-    model.add(Dense(2*args.n_filters, 2*args.n_filters,
-        W_regularizer=l2(args.l2_penalty)))
-    model.add(Activation('relu'))
+    model.add(Dense(2*args.n_filters,
+            W_regularizer=l2(args.l2_penalty),
+            activation='relu'))
     if 'dropout' in args.regularization_layer:
         model.add(Dropout(args.dropout_p))
     if 'normalization' in args.regularization_layer:
         model.add(BatchNormalization((2*args.n_filters,)))
 
-    model.add(Dense(2*args.n_filters, args.n_classes,
-        W_regularizer=l2(args.l2_penalty)))
+    model.add(Dense(args.n_classes,
+        W_regularizer=l2(args.l2_penalty),
+        activation='softmax'))
     #if 'normalization' in args.regularization_layer:
     #    model.add(BatchNormalization((args.n_classes,)))
-    model.add(Activation('softmax'))
 
     if args.optimizer == 'SGD':
         optimizer = SGD(lr=args.learning_rate,
