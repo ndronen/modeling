@@ -31,6 +31,8 @@ def build_keras():
 
 def build_lasagne():
     parser = build()
+    parser.add_argument('--progress', action='store_true',
+            help='Whether to display a progress for training and validation')
     return parser
 
 def build():
@@ -47,7 +49,7 @@ def build():
 
     parser.add_argument('--target-name', default='target_code', type=str,
             help='Name of the target variable in input HDF5 file.')
-    parser.add_argument('--extra-train-file', type=str, nargs='+',
+    parser.add_argument('--extra-train-file', type=str, nargs='+', default=[],
             help='path to one or more extra train files, useful for when training set is too big to fit into memory.')
     parser.add_argument('--model-cfg', type=kvpair, nargs='+', default=[],
             help='Model hyper-parameters as KEY=VALUE pairs; overrides parameters in MODEL_DIR/model.json')
@@ -61,9 +63,9 @@ def build():
             help='Shuffle the data in each minibatch')
     parser.add_argument('--n-epochs', type=int, default=100,
             help='The maximum number of epochs to train')
-    parser.add_argument('--n-train', default=sys.maxint, type=int,
+    parser.add_argument('--n-train', default=sys.maxsize, type=int,
             help='The number of training examples to use')
-    parser.add_argument('--n-validation', default=sys.maxint, type=int,
+    parser.add_argument('--n-validation', default=sys.maxsize, type=int,
             help='The number of validation examples to use')
     parser.add_argument('--n-vocab', default=-1, type=int,
             help='The number of words in the training vocabulary')
