@@ -1,3 +1,5 @@
+import os.path
+
 import numpy as np
 
 from keras.models import Sequential
@@ -31,7 +33,7 @@ def build_model(args):
     else:
         model.add(Embedding(args.n_vocab, args.n_word_dims,
             W_constraint=maxnorm(args.embedding_max_norm),
-            weights=[W], input_length=args.input_width))
+            input_length=args.input_width))
 
     if args.use_difference:
         model.add(TemporalDifference())
@@ -50,10 +52,11 @@ def build_model(args):
         pool_length=args.input_width - args.filter_width + 1,
         stride=1, ignore_border=False))
     model.add(Flatten())
+
     if 'dropout' in args.regularization_layer:
         model.add(Dropout(args.dropout_p_conv))
     if 'normalization' in args.regularization_layer:
-        model.add(BatchNormalization((args.n_filters,)))
+        model.add(BatchNormalization())
 
     model.add(Dense(2*args.n_filters,
             W_regularizer=l2(args.l2_penalty),
@@ -61,7 +64,7 @@ def build_model(args):
     if 'dropout' in args.regularization_layer:
         model.add(Dropout(args.dropout_p))
     if 'normalization' in args.regularization_layer:
-        model.add(BatchNormalization((2*args.n_filters,)))
+        model.add(BatchNormalization())
 
     model.add(Dense(2*args.n_filters,
             W_regularizer=l2(args.l2_penalty),
@@ -69,7 +72,7 @@ def build_model(args):
     if 'dropout' in args.regularization_layer:
         model.add(Dropout(args.dropout_p))
     if 'normalization' in args.regularization_layer:
-        model.add(BatchNormalization((2*args.n_filters,)))
+        model.add(BatchNormalization())
 
     model.add(Dense(2*args.n_filters,
             W_regularizer=l2(args.l2_penalty),
@@ -77,7 +80,7 @@ def build_model(args):
     if 'dropout' in args.regularization_layer:
         model.add(Dropout(args.dropout_p))
     if 'normalization' in args.regularization_layer:
-        model.add(BatchNormalization((2*args.n_filters,)))
+        model.add(BatchNormalization())
 
     model.add(Dense(args.n_classes,
         W_regularizer=l2(args.l2_penalty),
@@ -100,6 +103,13 @@ def build_model(args):
     else:
         raise ValueError("don't know how to use optimizer {0}".format(args.optimizer))
 
+    if hasattr(args, 'model_weights'):
+        print('Checking for weights file ' + str(args.model_weights))
+        if os.path.exists(args.model_weights):
+            print('Loading weights')
+            model.load_weights(args.model_weights)
+
+    print('Compiling')
     model.compile(loss=args.loss, optimizer=optimizer)
 
     return model
