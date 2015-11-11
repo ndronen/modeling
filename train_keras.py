@@ -38,7 +38,7 @@ def main(args):
     model_id = build_model_id(args)
     model_path = build_model_path(args, model_id)
     setup_model_dir(args, model_path)
-    sys.stdout, sys.stderr = setup_logging(args)
+    sys.stdout, sys.stderr = setup_logging(args, model_path)
 
     x_train, y_train = load_model_data(args.train_file,
             args.data_name, args.target_name,
@@ -85,7 +85,7 @@ def main(args):
     logging.info('model has {n_params} parameters'.format(
         n_params=count_parameters(model)))
 
-    if args.extra_train_file is not None:
+    if len(args.extra_train_file) > 1:
         callbacks = keras.callbacks.CallbackList()
     else:
         callbacks = []
@@ -109,8 +109,7 @@ def main(args):
                 target_names=target_names)
         callbacks.append(cr)
 
-    if args.extra_train_file is not None:
-
+    if len(args.extra_train_file) > 1:
         args.extra_train_file.append(args.train_file)
         logging.info("Using the following files for training: " +
                 ','.join(args.extra_train_file))
