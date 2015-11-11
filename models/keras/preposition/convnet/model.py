@@ -13,8 +13,6 @@ from modeling.layers import ImmutableEmbedding
 from modeling.difference import TemporalDifference
 
 def build_model(args):
-    print("args", vars(args))
-
     np.random.seed(args.seed)
 
     model = Sequential()
@@ -31,7 +29,7 @@ def build_model(args):
     else:
         model.add(Embedding(args.n_vocab, args.n_word_dims,
             W_constraint=maxnorm(args.embedding_max_norm),
-            weights=[W], input_length=args.input_width))
+            input_length=args.input_width))
 
     if args.use_difference:
         model.add(TemporalDifference())
@@ -48,12 +46,12 @@ def build_model(args):
 
     model.add(MaxPooling1D(
         pool_length=args.input_width - args.filter_width + 1,
-        stride=1, ignore_border=False))
+        stride=None, ignore_border=False))
     model.add(Flatten())
     if 'dropout' in args.regularization_layer:
         model.add(Dropout(args.dropout_p_conv))
     if 'normalization' in args.regularization_layer:
-        model.add(BatchNormalization((args.n_filters,)))
+        model.add(BatchNormalization())
 
     model.add(Dense(2*args.n_filters,
             W_regularizer=l2(args.l2_penalty),
@@ -61,7 +59,7 @@ def build_model(args):
     if 'dropout' in args.regularization_layer:
         model.add(Dropout(args.dropout_p))
     if 'normalization' in args.regularization_layer:
-        model.add(BatchNormalization((2*args.n_filters,)))
+        model.add(BatchNormalization())
 
     model.add(Dense(2*args.n_filters,
             W_regularizer=l2(args.l2_penalty),
@@ -69,7 +67,7 @@ def build_model(args):
     if 'dropout' in args.regularization_layer:
         model.add(Dropout(args.dropout_p))
     if 'normalization' in args.regularization_layer:
-        model.add(BatchNormalization((2*args.n_filters,)))
+        model.add(BatchNormalization())
 
     model.add(Dense(2*args.n_filters,
             W_regularizer=l2(args.l2_penalty),
@@ -77,7 +75,7 @@ def build_model(args):
     if 'dropout' in args.regularization_layer:
         model.add(Dropout(args.dropout_p))
     if 'normalization' in args.regularization_layer:
-        model.add(BatchNormalization((2*args.n_filters,)))
+        model.add(BatchNormalization())
 
     model.add(Dense(args.n_classes,
         W_regularizer=l2(args.l2_penalty),
@@ -99,6 +97,10 @@ def build_model(args):
         optimizer = Adagrad(clipnorm=args.clipnorm)
     else:
         raise ValueError("don't know how to use optimizer {0}".format(args.optimizer))
+
+    if hasattr(args, 'model_weights') and args.model_weights is not None:
+        print('Loading weights (build_model)')
+        model.load_weights(args.model_weights)
 
     model.compile(loss=args.loss, optimizer=optimizer)
 
