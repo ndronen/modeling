@@ -50,7 +50,7 @@ def callable_print(s):
     print(s)
 
 def load_model_data(path, data_name, target_name, n=sys.maxint):
-    hdf5 = h5py.File(path)
+    hdf5 = h5py.File(path, 'r')
     datasets = [hdf5[d].value.astype(np.int32) for d in data_name]
     for i,d in enumerate(datasets):
         if d.ndim == 1:
@@ -183,7 +183,7 @@ def load_all_model_data(data_file, model_cfg, n=sys.maxint):
     seen_keys = list(model_cfg.data_name)
     seen_keys.append(model_cfg.target_name)
 
-    f = h5py.File(data_file)
+    f = h5py.File(data_file, 'r')
 
     for key in f.keys():
         if key not in seen_keys:
@@ -217,6 +217,23 @@ def load_model(model_dir, load_weights_after_build_model=False):
             model.load_weights(model_dir + '/model.h5')
 
     return model, model_cfg
+
+def predict_proba(model, data):
+    probs = model.predict_proba(data)
+    preds = np.argmax(probs, axis=1)
+    return probs, preds
+
+def save_probs_preds_to_file(hdf5_path, probs, preds):
+    f = h5py.File(hdf5_path, 'r+')
+    f.create_dataset('prob', data=probs, dtype=np.float32)
+    f.create_dataset('pred', data=preds, dtype=np.int32)
+    f.close()
+
+def load_predict_save(model_dir, data_file):
+    model, model_cfg = load_model(model_dir)
+    model_data = load_all_model_data(data_file, model_cfg)
+    probs, preds = predict_proba(model, model_data.data)
+    save_probs_preds_to_file(data_file, probs, preds)
 
 def print_classification_report(target, pred, target_names, digits=4):
     print(metrics.classification_report(target, pred, target_names=target_names, digits=digits))
