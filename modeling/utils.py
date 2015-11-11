@@ -58,6 +58,7 @@ def load_model_data(path, data_name, target_name, n=sys.maxint):
     print([d.shape for d in datasets])
     data = np.concatenate(datasets, axis=1)
     target = hdf5[target_name].value.astype(np.int32)
+    hdf5.close()
 
     if len(data) > n:
         target = target[0:n]
@@ -65,9 +66,9 @@ def load_model_data(path, data_name, target_name, n=sys.maxint):
 
     return data, target
 
-def setup_logging(args):
+def setup_logging(args, model_path):
     if args.log and not args.no_save:
-        logging.basicConfig(filename=args.model_path + 'model.log',
+        logging.basicConfig(filename=model_path + 'model.log',
                 format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
                 datefmt='%m-%d %H:%M',
                 level=logging.DEBUG)
@@ -167,7 +168,33 @@ def save_model_info(args, model_path, model_cfg):
 
     json.dump(vars(model_cfg), open(model_path + '/args.json', 'w'))
 
-def load_model(model_dir, input_file_arg='validation_file', input_file=None):
+def load_all_model_data(data_file, model_cfg, n=sys.maxint):
+    data, target = load_model_data(data_file,
+            model_cfg.data_name, model_cfg.target_name, n=n)
+
+    target_one_hot = to_categorical(target, model_cfg.n_classes)
+
+    results = {
+            'data': data,
+            'target': target,
+            'target_one_hot': target_one_hot
+            }
+
+    seen_keys = list(model_cfg.data_name)
+    seen_keys.append(model_cfg.target_name)
+
+    f = h5py.File(data_file)
+
+    for key in f.keys():
+        if key not in seen_keys:
+            results[key] = f[key].value[0:n]
+
+    f.close()
+
+    # Return dict as namespace for easy tab completion.
+    return ModelConfig(**results)
+
+def load_model(model_dir, load_weights_after_build_model=False):
     args_json = json.load(open(model_dir + '/args.json'))
     model_json = json.load(open(model_dir + '/model.json'))
     model_json.update(args_json)
@@ -176,27 +203,6 @@ def load_model(model_dir, input_file_arg='validation_file', input_file=None):
         for k,v in model_json['model_cfg']:
             model_json[k] = v
 
-    if input_file is not None:
-        input_file_path = input_file
-    else:
-        input_file_path = model_json[input_file_arg]
-    f = h5py.File(input_file_path)
-    datasets = [f[d].value.astype(np.int32) for d in model_json['data_name']]
-    for i,d in enumerate(datasets):
-        if d.ndim == 1:
-            datasets[i] = d.reshape((d.shape[0], 1))
-    print([d.shape for d in datasets])
-    data = np.concatenate(datasets, axis=1)
-    target = f[model_json['target_name']].value.astype(np.int32)
-
-    seen_keys = model_json['data_name']
-    seen_keys.append(model_json['target_name'])
-
-    model_json['input_width'] = data.shape[1]
-    if 'n_classes' not in model_json:
-        model_json['n_classes'] = np.max(target) + 1
-
-    one_hot_target = to_categorical(target, model_json['n_classes'])
 
     # Re-instantiate ModelConfig using the updated JSON.
     sys.path.append(model_dir)
@@ -204,25 +210,13 @@ def load_model(model_dir, input_file_arg='validation_file', input_file=None):
     model_cfg = ModelConfig(**model_json)
     model = build_model(model_cfg)
 
-    # Load the saved weights.
-    #model.load_weights(model_dir + '/model.h5')
+    if load_weights_after_build_model:
+        # Load the saved weights.
+        if os.path.exists(model_dir + '/model.h5'):
+            print('Loading weights (load_weights)')
+            model.load_weights(model_dir + '/model.h5')
 
-    results = {
-            "model": model,
-            "data": data,
-            "target": target,
-            "one_hot_target": one_hot_target,
-            "config": model_cfg
-            }
-
-    for key in f.keys():
-        if key not in seen_keys:
-            results[key] = f[key].value
-
-    f.close()
-
-    # Convert to a namespace for easy tab completion.
-    return ModelConfig(**results)
+    return model, model_cfg
 
 def print_classification_report(target, pred, target_names, digits=4):
     print(metrics.classification_report(target, pred, target_names=target_names, digits=digits))
