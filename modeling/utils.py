@@ -225,6 +225,14 @@ def predict_proba(model, data):
 
 def save_probs_preds_to_file(hdf5_path, probs, preds):
     f = h5py.File(hdf5_path, 'r+')
+    try:
+        del f['prob']
+    except KeyError:
+        pass
+    try:
+        del f['pred']
+    except KeyError:
+        pass
     f.create_dataset('prob', data=probs, dtype=np.float32)
     f.create_dataset('pred', data=preds, dtype=np.int32)
     f.close()
