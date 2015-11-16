@@ -1,3 +1,5 @@
+import numpy as np
+
 def mask_zero_for_rnn(hdf5_fh, n_vocab):
     """
     Given an HDF5 data set with inputs `X` (the entire sentence),
@@ -34,19 +36,21 @@ def mask_zero_for_rnn(hdf5_fh, n_vocab):
                 hdf5_fh['X'].value,
                 hdf5_fh['len'].value,
                 n_vocab)
-    hdf5_fh.create_dataset('XRNN', data=X, dtype=X.dtype)
+    hdf5_fh.create_dataset('XRNN', data=XRNN, dtype=XRNN.dtype)
 
     XwindowRNN = renumber_unknowns_in_window(
                 hdf5_fh['Xwindow'].value,
                 hdf5_fh['window_position'].value,
                 n_vocab)
-    hdf5_fh.create_dataset('XwindowRNN', data=XwindowRNN, dtype=X.dtype)
+    hdf5_fh.create_dataset('XwindowRNN', data=XwindowRNN, dtype=XwindowRNN.dtype)
 
     XwindowNULLRNN = renumber_unknowns_in_window(
                 hdf5_fh['XwindowNULL'].value,
                 hdf5_fh['window_position'].value,
                 n_vocab)
-    hdf5_fh.create_dataset('XwindowNULLRNN', data=XwindowNULLRNN, dtype=X.dtype)
+    hdf5_fh.create_dataset('XwindowNULLRNN', data=XwindowNULLRNN, dtype=XwindowNULLRNN.dtype)
+
+    return hdf5_fh
 
 def renumber_unknowns_in_sentence(X, lengths, n_vocab):
     """
@@ -59,9 +63,10 @@ def renumber_unknowns_in_sentence(X, lengths, n_vocab):
 
     X = X.copy()
     for i,length in enumerate(lengths):
-        sentence = X[i]
+        sent = X[i]
+        zeros_in_sent = [False] * X.shape[1]
         # Add 2 for leading '<s>' and trailing '</s>'.
-        zeros_in_sent = sentence[:length+2] == 0
+        zeros_in_sent[:length+2] = sent[:length+2] == 0
         if np.any(zeros_in_sent):
             X[i, zeros_in_sent] = n_vocab
     return X
