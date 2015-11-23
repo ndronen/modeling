@@ -78,6 +78,7 @@ def main(args):
     sys.path.append(args.model_dir)
     from model import build_model
     model_cfg = ModelConfig(**json_cfg)
+    logging.info("model_cfg " + str(model_cfg))
     model = build_model(model_cfg)
 
     setattr(model, 'stop_training', False)
@@ -100,8 +101,14 @@ def main(args):
 
     callback_logger = logging.info if args.log else callable_print
 
-    callbacks.append(EarlyStopping(
-        monitor='val_loss', patience=model_cfg.patience, verbose=1))
+    if not np.isfinite(args.n_epochs):
+        # Number of epochs overrides patience.  If the number of epochs
+        # is specified on the command line, the model is trained for
+        # exactly that number; otherwise, the model is trained with
+        # early stopping using the patience specified in the model 
+        # configuration.
+        callbacks.append(EarlyStopping(
+            monitor='val_loss', patience=model_cfg.patience, verbose=1))
 
     if args.classification_report:
         cr = ClassificationReport(x_validation, y_validation,
