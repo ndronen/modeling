@@ -88,7 +88,10 @@ def build_model_id(args):
 
 def build_model_path(args, model_id):
     # TODO: Windows compatibility.
-    return args.model_dir + '/' + model_id + '/'
+    if len(args.model_dest):
+        return args.model_dest + '/'
+    else:
+        return args.model_dir + '/' + model_id + '/'
 
 def setup_model_dir(args, model_path):
     if not args.no_save:
@@ -107,6 +110,10 @@ def load_model_json(args, x_train, n_classes):
         json_cfg[k] = v
     # Copy (overriding) model parameters provided on the command-line.
     for k,v in args.model_cfg:
+        if v in ['true', 'false']:
+            print('converting %s => %s to boolean' % (k,v))
+            v = bool(v)
+            print('now %s => %s' % (k,v))
         json_cfg[k] = v
 
     # Add some values are derived from the training data.
@@ -149,7 +156,15 @@ def load_target_data(args, n_classes):
             del class_weight[key]
             class_weight[int(key)] = v
 
+    # The target data JSON file contains weights that are determined by
+    # an imbalanced data set.  If we subsequently balance the data set,
+    # we want to be able to ignore those weights during training.
+    if not args.use_class_weights:
+        class_weight = None
+
     n_classes = len(target_names)
+
+    print(n_classes, target_names, class_weight)
 
     return n_classes, target_names, class_weight
 
@@ -194,7 +209,7 @@ def load_all_model_data(data_file, model_cfg, n=sys.maxint):
     # Return dict as namespace for easy tab completion.
     return ModelConfig(**results)
 
-def load_model(model_dir, load_weights_after_build_model=False):
+def load_model(model_dir, load_weights=False):
     args_json = json.load(open(model_dir + '/args.json'))
     model_json = json.load(open(model_dir + '/model.json'))
     model_json.update(args_json)
@@ -203,6 +218,8 @@ def load_model(model_dir, load_weights_after_build_model=False):
         for k,v in model_json['model_cfg']:
             model_json[k] = v
 
+    if load_weights:
+        model_json['model_weights'] = model_dir + '/model.h5'
 
     # Re-instantiate ModelConfig using the updated JSON.
     sys.path.append(model_dir)
@@ -210,10 +227,10 @@ def load_model(model_dir, load_weights_after_build_model=False):
     model_cfg = ModelConfig(**model_json)
     model = build_model(model_cfg)
 
-    if load_weights_after_build_model:
+    if load_weights:
         # Load the saved weights.
         if os.path.exists(model_dir + '/model.h5'):
-            print('Loading weights (load_weights)')
+            print('Loading weights')
             model.load_weights(model_dir + '/model.h5')
 
     return model, model_cfg
@@ -224,24 +241,46 @@ def predict_proba(model, data):
     return probs, preds
 
 def save_probs_preds_to_file(hdf5_path, probs, preds):
-    f = h5py.File(hdf5_path, 'r+')
-    try:
-        del f['prob']
-    except KeyError:
-        pass
-    try:
-        del f['pred']
-    except KeyError:
-        pass
+    if os.path.exists(hdf5_path):
+        f = h5py.File(hdf5_path, 'r+')
+        try:
+            del f['prob']
+        except KeyError:
+            pass
+        try:
+            del f['pred']
+        except KeyError:
+            pass
+    else:
+        f = h5py.File(hdf5_path, 'w')
     f.create_dataset('prob', data=probs, dtype=np.float32)
     f.create_dataset('pred', data=preds, dtype=np.int32)
     f.close()
 
-def load_predict_save(model_dir, data_file):
-    model, model_cfg = load_model(model_dir)
+def load_predict_save(model_dir, data_file, output_dir=None):
+    model_name = os.path.basename(os.path.dirname(model_dir))
+    data_name = os.path.basename(data_file)
+    data_prefix = os.path.splitext(data_name)[0]
+
+    if output_dir is None:
+        output_dir = os.path.dirname(data_file)
+    output_prefix = output_dir + '/' + data_prefix + '-' + model_name
+
+    cfg_output_file = output_prefix + '-cfg.json'
+    pred_output_file = output_prefix + '-pred.h5'
+
+    # Save the configuration.
+    model, model_cfg = load_model(model_dir, load_weights=True)
+    model_json = dict(vars(model_cfg))
+    json.dump(model_json, open(cfg_output_file, 'w'))
+    print('Saved model config to %s' % cfg_output_file)
+
+    # Save the predictions.
     model_data = load_all_model_data(data_file, model_cfg)
     probs, preds = predict_proba(model, model_data.data)
-    save_probs_preds_to_file(data_file, probs, preds)
+    save_probs_preds_to_file(pred_output_file, probs, preds)
+    print('Saved predictions to %s' % pred_output_file)
+
 
 def print_classification_report(target, pred, target_names, digits=4):
     print(metrics.classification_report(target, pred, target_names=target_names, digits=digits))
