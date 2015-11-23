@@ -1,5 +1,6 @@
 import sys
 import argparse
+import numpy
 
 def kvpair(s):
     try:
@@ -57,11 +58,13 @@ def build():
             help='Directory to which to copy model.py and model.json.  This overrides copying to model_dir/UUID.')
     parser.add_argument('--target-data', type=str,
             help='Pickled dictionary of target data from sklearn.preprocessing.LabelEncoder.  The dictionary must contain a key `TARGET_NAME` that maps either to a list of target names or a dictionary mapping target names to their class weights (useful for imbalanced data sets')
+    parser.add_argument('--use-class-weights', action='store_true',
+            help='Whether to use the class weights from the target data file during training (see --target-data)')
     parser.add_argument('--description', type=str,
             help='Short description of this model (data, hyperparameters, etc.)')
-    parser.add_argument('--shuffle', default=True, action='store_true',
+    parser.add_argument('--shuffle', default=False, action='store_true',
             help='Shuffle the data in each minibatch')
-    parser.add_argument('--n-epochs', type=int, default=100,
+    parser.add_argument('--n-epochs', type=int, default=numpy.inf,
             help='The maximum number of epochs to train')
     parser.add_argument('--n-train', default=sys.maxsize, type=int,
             help='The number of training examples to use')
