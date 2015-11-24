@@ -2,26 +2,37 @@ import os
 import h5py
 import numpy as np
 
-def split_data(path, split_size):
+def split_data(hdf5_path, split_size, output_dir=None):
     """
-    Split the datasets in an HDF5 file into smaller sets
-    and save them to new files.
+    Split the datasets in an HDF5 file into smaller sets and save them
+    to new files.  By default the files are put into a subdirectory of
+    the directory containing `hdf5_path`.  The subdirectory is created
+    if it does not exist; the name of the directory is `hdf5_path` with
+    the file suffix removed.  To write to a different directory, provide
+    the path to the existing directory in `output_dir`.
+
+    Parameters
+    -------
+    hdf5_path : str
+        The path to the HDF5 file.
+    split_size : int
+        The size of the 
     """
-    prefix = os.path.splitext(path)[0]
-    f = h5py.File(path)
+    f = h5py.File(hdf5_path)
     n = 0
     # Find the largest n.
     for k,v in f.iteritems():
         n = max(n, v.value.shape[0])
-    print('n', n)
-    
-    os.mkdir(prefix)
+
+    if output_dir is None:
+        output_dir = os.path.splitext(hdf5_path)[0]
+        os.mkdir(output_dir)
 
     # Copy subsequences of the data to smaller files.
     width = int(np.ceil(np.log10(n / split_size)))
     for i,j in enumerate(range(0, n, split_size)):
         outfile = '{dir}/{num:{fill}{width}}.h5'.format(
-                dir=prefix, num=i, fill='0', width=width)
+                dir=output_dir, num=i, fill='0', width=width)
         print(outfile)
         fout = h5py.File(outfile, 'w')
         for k,v in f.iteritems():
@@ -29,13 +40,23 @@ def split_data(path, split_size):
             fout.create_dataset(k, data=subset, dtype=v.dtype)
         fout.close()
 
-def downsample_indices(original_word_code):
-    n = min(np.bincount(original_word_code))
+def downsample_indices(target):
+    """
+    Get a subset of the indices in the target variable of an imbalanced dataset
+    such that each class has the same number of occurrences.  This is to be used
+    in conjunction with `downsample_hdf5_file` to create a balanced dataset.
+
+    Parameters
+    ---------
+    target : array-like of int
+        The target variable from which to sample.
+    """
+    n = min(np.bincount(target))
     n_even = n/2
     indices = []
 
-    for code in np.arange(max(original_word_code)+1):
-        mask = original_word_code == code
+    for code in np.arange(max(target)+1):
+        mask = target == code
         idx = np.sort(np.where(mask)[0])
         # Only sample from the even indices so the downsampled dataset
         # still consists of pairs of positive and negative examples.
