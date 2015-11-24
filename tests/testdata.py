@@ -14,7 +14,8 @@ class TestData(unittest.TestCase):
         sentence = np.arange(1, 12)
         position = 0
         expected_window = [0, 0, 0, 1, 2, 3, 4]
-        window = modeling.data.create_window(sentence, position, window_size=7)
+        window = modeling.data.create_window(sentence, position,
+                size=7)
 
         self.assertEqual(7, len(window))
         self.assertTrue(np.all(window == expected_window))
@@ -25,7 +26,7 @@ class TestData(unittest.TestCase):
         nonce = 99
         expected_window = [8, 9, 10, nonce, 0, 0, 0]
         window = modeling.data.create_window(sentence, position,
-                window_size=7, nonce=nonce)
+                size=7, nonce=nonce)
 
         self.assertEqual(7, len(window))
         self.assertTrue(np.all(window == expected_window))
