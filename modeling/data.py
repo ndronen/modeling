@@ -195,7 +195,7 @@ def renumber_unknowns_in_window(Xwindow, window_positions, n_vocab):
             Xwindow[i, zeros_in_window] = n_vocab
     return Xwindow
 
-def create_window(sentence, window_position, window_size=7, nonce=None):
+def create_window(sentence, position, size=7, nonce=None):
     """
     Create a fixed-width window onto a sentence centered at some position.
     The sentence is assumed not to contain sentence-initial and -terminating
@@ -209,36 +209,58 @@ def create_window(sentence, window_position, window_size=7, nonce=None):
     sentence : np.ndarray
         An array of integers that represents a sentence.  The integers
         are indices in a model's vocabulary.
-    window_position : int
+    position : int
         The 0-based index of the word in the sentence on which the window
         should be centered.
-    window_size : int
+    size : int
         The size of the window.  Must be odd.
     nonce : int or None
         The index in the vocabulary of the nonce word to put at the
         center of the window, replacing the index of the existing word.
         When None, this does not occur.
     """
-    if window_position < 0 or window_position >= len(sentence):
-        raise ValueError("`window_position` (%d) must lie within sentence (len=%d)" % 
-                (window_position, len(sentence)))
+    if position < 0 or position >= len(sentence):
+        raise ValueError("`position` (%d) must lie within sentence (len=%d)" % 
+                (position, len(sentence)))
 
     # Get exactly the positions in `sentence` to copy to `window`.
-    window_start = window_position - window_size/2
-    window_end = window_position + window_size/2
+    window_start = position - size/2
+    window_end = position + size/2
     sent_range = np.arange(window_start, window_end+1)
     sent_mask = (sent_range >= 0) & (sent_range < len(sentence))
     sent_indices = sent_range[sent_mask]
 
-    window_range = np.arange(0, window_size)
+    window_range = np.arange(0, size)
     window_indices = window_range[sent_mask]
 
-    window = np.zeros(window_size)
+    window = np.zeros(size)
     window[window_indices]
     sentence[sent_indices]
     window[window_indices] = sentence[sent_indices]
 
     if nonce is not None:
-        window[window_size/2] = nonce
+        window[size/2] = nonce
 
     return window
+
+def create_windows(sentences, lengths, positions, window_size, nonce=None):
+    windows = np.zeros((len(sentences), window_size))
+    for i, sentence in enumerate(sentences):
+        length = lengths[i]
+        position = positions[i]
+        sentence_without_zero_padding = sentence[0:length+2]
+        sentence_without_markup = sentence_without_zero_padding[1:-1]
+        windows[i] = modeling.data.create_window(
+                sentence_without_markup, 
+                position=position,
+                window_size=window_size,
+                nonce=nonce)
+    return windows
+
+def add_window_dataset(hdf5_file, name, window_size, nonce=None, sentences_name='X'):
+    sentences = hdf5_file[sentences_name].value
+    lengths = hdf5_file['len'].value
+    positions = hdf5_file['window_position'].value
+
+    windows = create_windows(sentences, lengths, positions, window_size, nonce)
+    hdf5_file.create_dataset(name, data=windows, dtype=np.int32)
