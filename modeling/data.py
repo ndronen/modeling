@@ -40,11 +40,11 @@ def split_data(hdf5_path, split_size, output_dir=None):
             fout.create_dataset(k, data=subset, dtype=v.dtype)
         fout.close()
 
-def downsample_indices(target):
+def balance_classes(target):
     """
     Get a subset of the indices in the target variable of an imbalanced dataset
     such that each class has the same number of occurrences.  This is to be used
-    in conjunction with `downsample_hdf5_file` to create a balanced dataset.
+    in conjunction with `balance_datasets` to create a balanced dataset.
 
     Parameters
     ---------
@@ -69,7 +69,20 @@ def downsample_indices(target):
 
     return np.sort(indices)
 
-def downsample_hdf5_file(hdf5_file, idx):
+def balance_datasets(hdf5_file, key='original_word_code'):
+    """
+    Balance the datasets in an HDF5 file.  A balanced sample of
+    the dataset denoted by `key` is taken.  The corresponding 
+    examples from all other datasets are sampled, too.
+
+    Parameters
+    -----------
+    hdf5_file : h5py.File
+        An open HDF5 file.
+    key : str
+        The key of the target variable in `hdf5_file` to balance.  
+    """
+    idx = balance_classes(hdf5_file[key].value)
     for key in hdf5_file.keys():
         value = hdf5_file[key].value
         del hdf5_file[key]
@@ -181,3 +194,48 @@ def renumber_unknowns_in_window(Xwindow, window_positions, n_vocab):
         if np.any(zeros_in_window):
             Xwindow[i, zeros_in_window] = n_vocab
     return Xwindow
+
+def create_window(sentence, window_position, window_size=7, nonce=None):
+    """
+    Create a fixed-width window onto a sentence centered at some position.
+    The sentence is assumed not to contain sentence-initial and -terminating
+    markup (i.e. no '<s>' element immediately before the start of the
+    sentence and no '</s>' immediately after its end).  (If they were included
+    in `sentence`, we would exclude them for backward compatibility with other
+    preprocesing code.)  It is also assumed not to be padded with trailing zeros.
+
+    Parameters
+    ---------
+    sentence : np.ndarray
+        An array of integers that represents a sentence.  The integers
+        are indices in a model's vocabulary.
+    window_position : int
+        The 0-based index of the word in the sentence on which the window
+        should be centered.
+    window_size : int
+        The size of the window.  Must be odd.
+    nonce : int or None
+        The index in the vocabulary of the nonce word to put at the
+        center of the window, replacing the index of the existing word.
+        When None, this does not occur.
+    """
+    if window_position < 0 or window_position >= len(sentence):
+        raise ValueError("`window_position` (%d) must lie within sentence (len=%d)" % 
+                (window_position, len(sentence)))
+
+    # Get exactly the positions in `sentence` to copy to `window`.
+    window_start = window_position - window_size/2
+    window_end = window_position + window_size/2
+    sent_range = np.arange(window_start, window_end+1)
+    sent_mask = (sent_range >= 0) & (sent_range < len(sentence))
+    sent_indices = sent_range[sent_mask]
+
+    window_range = np.arange(0, window_size)
+    window_indices = window_range[sent_mask]
+
+    window = np.zeros(window_size)
+    window[window_indices]
+    sentence[sent_indices]
+    window[window_indices] = sentence[sent_indices]
+
+    return window
