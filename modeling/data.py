@@ -1,4 +1,58 @@
+import os
+import h5py
 import numpy as np
+
+def split_data(path, split_size):
+    """
+    Split the datasets in an HDF5 file into smaller sets
+    and save them to new files.
+    """
+    prefix = os.path.splitext(path)[0]
+    f = h5py.File(path)
+    n = 0
+    # Find the largest n.
+    for k,v in f.iteritems():
+        n = max(n, v.value.shape[0])
+    print('n', n)
+    
+    os.mkdir(prefix)
+
+    # Copy subsequences of the data to smaller files.
+    width = int(np.ceil(np.log10(n / split_size)))
+    for i,j in enumerate(range(0, n, split_size)):
+        outfile = '{dir}/{num:{fill}{width}}.h5'.format(
+                dir=prefix, num=i, fill='0', width=width)
+        print(outfile)
+        fout = h5py.File(outfile, 'w')
+        for k,v in f.iteritems():
+            subset = v[j:j+split_size]
+            fout.create_dataset(k, data=subset, dtype=v.dtype)
+        fout.close()
+
+def downsample_indices(original_word_code):
+    n = min(np.bincount(original_word_code))
+    n_even = n/2
+    indices = []
+
+    for code in np.arange(max(original_word_code)+1):
+        mask = original_word_code == code
+        idx = np.sort(np.where(mask)[0])
+        # Only sample from the even indices so the downsampled dataset
+        # still consists of pairs of positive and negative examples.
+        even_idx = idx[idx % 2 == 0]
+        sampled_even_idx = np.sort(np.random.choice(even_idx, size=n_even, replace=False))
+        # Add the odd-numbered examples of errors.
+        sampled_idx = np.concatenate([sampled_even_idx, sampled_even_idx+1])
+        sampled_idx = np.sort(sampled_idx)
+        indices.extend(sampled_idx)
+
+    return np.sort(indices)
+
+def downsample_hdf5_file(hdf5_file, idx):
+    for key in hdf5_file.keys():
+        value = hdf5_file[key].value
+        del hdf5_file[key]
+        hdf5_file.create_dataset(key, data=value[idx], dtype=value.dtype)
 
 def mask_zero_for_rnn(hdf5_fh, n_vocab):
     """
