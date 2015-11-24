@@ -238,4 +238,7 @@ def create_window(sentence, window_position, window_size=7, nonce=None):
     sentence[sent_indices]
     window[window_indices] = sentence[sent_indices]
 
+    if nonce is not None:
+        window[window_size/2] = nonce
+
     return window
