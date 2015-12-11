@@ -243,24 +243,24 @@ def create_window(sentence, position, size=7, nonce=None):
 
     return window
 
-def create_windows(sentences, lengths, positions, window_size, nonce=None):
-    windows = np.zeros((len(sentences), window_size))
+def create_windows(sentences, lengths, positions, size, nonce=None):
+    windows = np.zeros((len(sentences), size))
     for i, sentence in enumerate(sentences):
         length = lengths[i]
         position = positions[i]
         sentence_without_zero_padding = sentence[0:length+2]
         sentence_without_markup = sentence_without_zero_padding[1:-1]
-        windows[i] = modeling.data.create_window(
+        windows[i] = create_window(
                 sentence_without_markup, 
                 position=position,
-                window_size=window_size,
+                size=size,
                 nonce=nonce)
     return windows
 
-def add_window_dataset(hdf5_file, name, window_size, nonce=None, sentences_name='X'):
+def add_window_dataset(hdf5_file, name, size, nonce=None, sentences_name='X'):
     sentences = hdf5_file[sentences_name].value
     lengths = hdf5_file['len'].value
     positions = hdf5_file['window_position'].value
 
-    windows = create_windows(sentences, lengths, positions, window_size, nonce)
+    windows = create_windows(sentences, lengths, positions, size, nonce)
     hdf5_file.create_dataset(name, data=windows, dtype=np.int32)

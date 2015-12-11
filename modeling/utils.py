@@ -110,9 +110,10 @@ def load_model_json(args, x_train, n_classes):
         json_cfg[k] = v
     # Copy (overriding) model parameters provided on the command-line.
     for k,v in args.model_cfg:
-        if v in ['true', 'false']:
+        str_to_bool = { 'True': True, 'False': False }
+        if isinstance(v, str) and v.title() in ['True', 'False']:
             print('converting %s => %s to boolean' % (k,v))
-            v = bool(v)
+            v = str_to_bool[v.title()]
             print('now %s => %s' % (k,v))
         json_cfg[k] = v
 

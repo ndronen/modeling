@@ -54,7 +54,7 @@ def build():
             help='path to one or more extra train files, useful for when training set is too big to fit into memory.')
     parser.add_argument('--model-cfg', type=kvpair, nargs='+', default=[],
             help='Model hyper-parameters as KEY=VALUE pairs; overrides parameters in MODEL_DIR/model.json')
-    parser.add_argument('--model-dest', type=str,
+    parser.add_argument('--model-dest', type=str, default='',
             help='Directory to which to copy model.py and model.json.  This overrides copying to model_dir/UUID.')
     parser.add_argument('--target-data', type=str,
             help='Pickled dictionary of target data from sklearn.preprocessing.LabelEncoder.  The dictionary must contain a key `TARGET_NAME` that maps either to a list of target names or a dictionary mapping target names to their class weights (useful for imbalanced data sets')
@@ -64,7 +64,7 @@ def build():
             help='Short description of this model (data, hyperparameters, etc.)')
     parser.add_argument('--shuffle', default=False, action='store_true',
             help='Shuffle the data in each minibatch')
-    parser.add_argument('--n-epochs', type=int, default=numpy.inf,
+    parser.add_argument('--n-epochs', default=sys.maxsize, type=int,
             help='The maximum number of epochs to train')
     parser.add_argument('--n-train', default=sys.maxsize, type=int,
             help='The number of training examples to use')
