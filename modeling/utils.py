@@ -118,7 +118,7 @@ def load_model_json(args, x_train, n_classes):
         json_cfg[k] = v
 
     # Add some values are derived from the training data.
-    json_cfg['n_vocab'] = max(args.n_vocab, np.max(x_train) + 1)
+    json_cfg['n_embeddings'] = max(args.n_embeddings, np.max(x_train) + 1)
     json_cfg['input_width'] = x_train.shape[1]
     json_cfg['n_classes'] = n_classes
 
