@@ -70,8 +70,8 @@ def build():
             help='The number of training examples to use')
     parser.add_argument('--n-validation', default=sys.maxsize, type=int,
             help='The number of validation examples to use')
-    parser.add_argument('--n-vocab', default=-1, type=int,
-            help='The number of words in the training vocabulary')
+    parser.add_argument('--n-embeddings', default=-1, type=int,
+            help="The number of words in the model's vocabulary")
     parser.add_argument('--n-classes', default=-1, type=int,
             help='The number of classes in TARGET_NAME')
     parser.add_argument('--log', action='store_true',

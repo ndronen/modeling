@@ -113,3 +113,26 @@ class VersionedModelCheckpoint(Callback):
     def _set_model(self, model):
         self.model = model
         self.delegate._set_model(model)
+
+class SingleStepLearningRateSchedule(keras.callbacks.Callback):
+    def __init__(self, patience=5, learning_rate_divisor=10.):
+        self.patience = patience
+        self.learning_rate_divisor = learning_rate_divisor
+        self.best_loss = np.inf
+        self.best_epoch = 0
+        self.updated_lr = False
+
+    def on_epoch_end(self, epoch, logs={}):
+        if self.updated_lr:
+            return
+
+        if logs['val_loss'] < self.best_loss:
+            self.best_loss = logs['val_loss']
+            self.best_epoch = epoch
+
+        if epoch - self.best_epoch > self.patience:
+            old_lr = self.model.optimizer.lr.get_value()
+            new_lr = (old_lr / self.learning_rate_divisor).astype(np.float32)
+            print('old_lr', old_lr, 'new_lr', new_lr)
+            self.model.optimizer.lr.set_value(new_lr)
+            self.learning_rate_divisor = 1.
