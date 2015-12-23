@@ -2,14 +2,14 @@ def build_embedding_layer(args):
     if hasattr(args, 'embedding_weights') and args.embedding_weights is not None:
         W = np.load(args.embedding_weights)
         if args.train_embeddings is True or args.train_embeddings == 'true':
-            return Embedding(args.n_vocab, args.n_word_dims,
+            return Embedding(args.n_vocab, args.n_embed_dims,
                 weights=[W], input_length=args.input_width,
                 W_constraint=maxnorm(args.embedding_max_norm))
         else:
-            return ImmutableEmbedding(args.n_vocab, args.n_word_dims,
+            return ImmutableEmbedding(args.n_vocab, args.n_embed_dims,
                 weights=[W], input_length=args.input_width)
     else:
-        return Embedding(args.n_vocab, args.n_word_dims,
+        return Embedding(args.n_vocab, args.n_embed_dims,
             W_constraint=maxnorm(args.embedding_max_norm),
             input_length=args.input_width)
 
