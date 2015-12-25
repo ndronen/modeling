@@ -1,15 +1,26 @@
+import numpy as np
+
+from keras.layers.core import Dense
+from keras.layers.embeddings import Embedding
+from keras.layers.convolutional import (Convolution1D, MaxPooling1D)
+from keras.optimizers import (SGD, Adam, Adadelta, Adagrad, RMSprop)
+from keras.constraints import maxnorm
+from keras.regularizers import l2
+
+from modeling.layers import ImmutableEmbedding
+
 def build_embedding_layer(args):
     if hasattr(args, 'embedding_weights') and args.embedding_weights is not None:
         W = np.load(args.embedding_weights)
         if args.train_embeddings is True or args.train_embeddings == 'true':
-            return Embedding(args.n_vocab, args.n_embed_dims,
+            return Embedding(args.n_embeddings, args.n_embed_dims,
                 weights=[W], input_length=args.input_width,
                 W_constraint=maxnorm(args.embedding_max_norm))
         else:
-            return ImmutableEmbedding(args.n_vocab, args.n_embed_dims,
+            return ImmutableEmbedding(args.n_embeddings, args.n_embed_dims,
                 weights=[W], input_length=args.input_width)
     else:
-        return Embedding(args.n_vocab, args.n_embed_dims,
+        return Embedding(args.n_embeddings, args.n_embed_dims,
             W_constraint=maxnorm(args.embedding_max_norm),
             input_length=args.input_width)
 
@@ -34,7 +45,7 @@ def build_dense_layer(args, n_hidden=None, activation='linear'):
 
 def load_weights(args, model):
     if hasattr(args, 'model_weights') and args.model_weights is not None:
-        print('Loading weights...')
+        print('Loading weights from %s' % args.model_weights)
         model.load_weights(args.model_weights)
 
 def build_optimizer(args):
