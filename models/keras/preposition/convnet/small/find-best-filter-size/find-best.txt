@@ -1,0 +1,16 @@
+X-100 X-100-5 10 11-25 18:13 root INFO 170s - loss: 1.2008 - acc: 0.6007 - val_loss: 1.2047 - val_acc: 0.5964
+
+XwindowNULL-100 XwindowNULL-100-3 10 11-25 19:56 root INFO 160s - loss: 1.1836 - acc: 0.6147 - val_loss: 1.2035 - val_acc: 0.6055
+XwindowNULL-X-100 XwindowNULL-X-100-5 10 11-25 12:33 root INFO 177s - loss: 1.0559 - acc: 0.6551 - val_loss: 1.0390 - val_acc: 0.6549
+Xwindow-X-100 Xwindow-X-100-5 10 11-26 00:28 root INFO 178s - loss: 1.0339 - acc: 0.6663 - val_loss: 1.0215 - val_acc: 0.6684
+Xwindow-100 Xwindow-100-3 10 11-25 08:02 root INFO 161s - loss: 0.9886 - acc: 0.6886 - val_loss: 1.0048 - val_acc: 0.6834
+
+Xwindow7NULL-100 Xwindow7NULL-100-5 10 11-25 21:07 root INFO 135s - loss: 1.1051 - acc: 0.6404 - val_loss: 1.1552 - val_acc: 0.6223
+Xwindow7NULL-X-100 Xwindow7NULL-X-100-5 10 11-25 13:54 root INFO 180s - loss: 1.0307 - acc: 0.6636 - val_loss: 1.0158 - val_acc: 0.6630
+Xwindow7-X-100 Xwindow7-X-100-7 10 11-26 02:20 root INFO 189s - loss: 0.9867 - acc: 0.6817 - val_loss: 0.9934 - val_acc: 0.6765
+Xwindow7-100 Xwindow7-100-5 10 11-25 09:12 root INFO 135s - loss: 0.9192 - acc: 0.7094 - val_loss: 0.9673 - val_acc: 0.6980
+
+Xwindow9NULL-100 Xwindow9NULL-100-5 10 11-25 22:30 root INFO 204s - loss: 1.0893 - acc: 0.6448 - val_loss: 1.1373 - val_acc: 0.6236
+Xwindow9NULL-X-100 Xwindow9NULL-X-100-9 10 11-25 16:56 root INFO 211s - loss: 0.9888 - acc: 0.6783 - val_loss: 1.0049 - val_acc: 0.6674
+Xwindow9-X-100 Xwindow9-X-100-9 10 11-26 04:50 root INFO 211s - loss: 0.9618 - acc: 0.6897 - val_loss: 0.9908 - val_acc: 0.6795
+Xwindow9-100 Xwindow9-100-7 10 11-25 10:58 root INFO 135s - loss: 0.8795 - acc: 0.7216 - val_loss: 0.9521 - val_acc: 0.7008
