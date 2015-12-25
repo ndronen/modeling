@@ -188,6 +188,8 @@ def load_all_model_data(data_file, model_cfg, n=sys.maxint):
     data, target = load_model_data(data_file,
             model_cfg.data_name, model_cfg.target_name, n=n)
 
+    print('load_all_model_data', np.bincount(target))
+
     target_one_hot = to_categorical(target, model_cfg.n_classes)
 
     results = {
@@ -202,15 +204,24 @@ def load_all_model_data(data_file, model_cfg, n=sys.maxint):
     f = h5py.File(data_file, 'r')
 
     for key in f.keys():
-        if key not in seen_keys:
-            results[key] = f[key].value[0:n]
+        if key in seen_keys:
+            continue
+
+        if key in results.keys():
+            newkey = '_' + key
+        else:
+            newkey = key
+
+        results[newkey] = f[key].value[0:n]
 
     f.close()
 
     # Return dict as namespace for easy tab completion.
-    return ModelConfig(**results)
+    config = ModelConfig(**results)
 
-def load_model(model_dir, load_weights=False):
+    return config
+
+def load_model(model_dir, model_weights=None):
     args_json = json.load(open(model_dir + '/args.json'))
     model_json = json.load(open(model_dir + '/model.json'))
     model_json.update(args_json)
@@ -219,20 +230,17 @@ def load_model(model_dir, load_weights=False):
         for k,v in model_json['model_cfg']:
             model_json[k] = v
 
-    if load_weights:
-        model_json['model_weights'] = model_dir + '/model.h5'
+    if model_weights:
+        if os.path.exists(model_dir + '/' + model_weights):
+            model_json['model_weights'] = model_dir + '/' + model_weights
+        else:
+            model_json['model_weights'] = model_weights
 
     # Re-instantiate ModelConfig using the updated JSON.
     sys.path.append(model_dir)
     from model import build_model
     model_cfg = ModelConfig(**model_json)
     model = build_model(model_cfg)
-
-    if load_weights:
-        # Load the saved weights.
-        if os.path.exists(model_dir + '/model.h5'):
-            print('Loading weights')
-            model.load_weights(model_dir + '/model.h5')
 
     return model, model_cfg
 
@@ -258,7 +266,13 @@ def save_probs_preds_to_file(hdf5_path, probs, preds):
     f.create_dataset('pred', data=preds, dtype=np.int32)
     f.close()
 
-def load_predict_save(model_dir, data_file, output_dir=None):
+def load_predict(model_dir, data_file, model_weights=None):
+    model, model_cfg = load_model(model_dir, model_weights=model_weights)
+    model_data = load_all_model_data(data_file, model_cfg)
+    probs, preds = predict_proba(model, model_data.data)
+    return model, model_cfg, model_data, probs, preds
+
+def load_predict_save(model_dir, data_file, output_dir=None, model_weights=None):
     model_name = os.path.basename(os.path.dirname(model_dir))
     data_name = os.path.basename(data_file)
     data_prefix = os.path.splitext(data_name)[0]
@@ -270,18 +284,17 @@ def load_predict_save(model_dir, data_file, output_dir=None):
     cfg_output_file = output_prefix + '-cfg.json'
     pred_output_file = output_prefix + '-pred.h5'
 
+    model, model_cfg, model_data, probs, preds = load_predict(model_dir,
+            data_file, model_weights=model_weights)
+
     # Save the configuration.
-    model, model_cfg = load_model(model_dir, load_weights=True)
     model_json = dict(vars(model_cfg))
     json.dump(model_json, open(cfg_output_file, 'w'))
     print('Saved model config to %s' % cfg_output_file)
 
     # Save the predictions.
-    model_data = load_all_model_data(data_file, model_cfg)
-    probs, preds = predict_proba(model, model_data.data)
     save_probs_preds_to_file(pred_output_file, probs, preds)
     print('Saved predictions to %s' % pred_output_file)
-
 
 def print_classification_report(target, pred, target_names, digits=4):
     print(metrics.classification_report(target, pred, target_names=target_names, digits=digits))
