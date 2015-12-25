@@ -15,7 +15,7 @@ import numpy as np
 import theano
 import h5py
 import six
-from sklearn.metrics import classification_report, fbeta_score
+from sklearn.metrics import classification_report, fbeta_score, accuracy_score
 
 from keras.utils import np_utils
 from keras.optimizers import SGD
@@ -25,7 +25,8 @@ import keras.models
 
 sys.path.append('.')
 
-from modeling.callbacks import ClassificationReport
+from modeling.callbacks import (ClassificationReport,
+        SingleStepLearningRateSchedule)
 from modeling.utils import (count_parameters, callable_print,
         setup_logging, setup_model_dir, save_model_info,
         load_model_data, load_model_json, load_target_data,
@@ -34,19 +35,16 @@ from modeling.utils import (count_parameters, callable_print,
 import modeling.parser
 
 def main(args):
-
     model_id = build_model_id(args)
     model_path = build_model_path(args, model_id)
     setup_model_dir(args, model_path)
     sys.stdout, sys.stderr = setup_logging(args, model_path)
 
     x_train, y_train = load_model_data(args.train_file,
-            args.data_name, args.target_name,
-            n=args.n_train)
+            args.data_name, args.target_name)
     x_validation, y_validation = load_model_data(
             args.validation_file,
-            args.data_name, args.target_name,
-            n=args.n_validation)
+            args.data_name, args.target_name)
 
     rng = np.random.RandomState(args.seed)
 
@@ -76,11 +74,39 @@ def main(args):
     logging.debug("loading model")
 
     sys.path.append(args.model_dir)
+    import model
     from model import build_model
+
+    if args.subsetting_function:
+        subsetter = getattr(model, args.subsetting_function)
+    else:
+        subsetter = None
+
+    def take_subset(subsetter, path, x, y, y_one_hot, n):
+        if subsetter is None:
+            return x[0:n], y[0:n], y_one_hot[0:n]
+        else:
+            mask = subsetter(path)
+            idx = np.where(mask)[0]
+            idx = idx[0:n]
+        return x[idx], y[idx], y_one_hot[idx]
+
+    x_train, y_train, y_train_one_hot = take_subset(
+            subsetter, args.train_file,
+            x_train, y_train, y_train_one_hot,
+            n=args.n_train)
+
+    x_validation, y_validation, y_validation_one_hot = take_subset(
+            subsetter, args.validation_file,
+            x_validation, y_validation, y_validation_one_hot,
+            n=args.n_validation)
+
+    logging.debug("y_train_one_hot " + str(y_train_one_hot.shape))
+    logging.debug("x_train " + str(x_train.shape))
+
     model_cfg = ModelConfig(**json_cfg)
     logging.info("model_cfg " + str(model_cfg))
     model = build_model(model_cfg)
-
     setattr(model, 'stop_training', False)
 
     logging.info('model has {n_params} parameters'.format(
@@ -95,13 +121,13 @@ def main(args):
 
     if not args.no_save:
         callbacks.append(ModelCheckpoint(
-            filepath=model_path + '/model.h5',
+            filepath=model_path + '/model-{epoch:04d}.h5',
             verbose=1,
             save_best_only=True))
 
     callback_logger = logging.info if args.log else callable_print
 
-    if not np.isfinite(args.n_epochs):
+    if args.n_epochs < sys.maxsize:
         # Number of epochs overrides patience.  If the number of epochs
         # is specified on the command line, the model is trained for
         # exactly that number; otherwise, the model is trained with
@@ -115,6 +141,9 @@ def main(args):
                 callback_logger,
                 target_names=target_names)
         callbacks.append(cr)
+
+    if model_cfg.optimizer == 'SGD':
+        callbacks.append(SingleStepLearningRateSchedule(patience=10))
 
     if len(args.extra_train_file) > 1:
         args.extra_train_file.append(args.train_file)
@@ -152,9 +181,17 @@ def main(args):
             for batch_index, (batch_start, batch_end) in enumerate(batches):
                 batch_ids = index_array[batch_start:batch_end]
 
-                train_loss, train_accuracy = model.train_on_batch(
-                        x_train[batch_ids], y_train_one_hot[batch_ids],
-                        accuracy=True, class_weight=class_weight)
+                if isinstance(model, keras.models.Graph):
+                    data = {
+                            'input': x_train[batch_ids],
+                            'output': y_train_one_hot[batch_ids]
+                            }
+                    train_loss = model.train_on_batch(data, class_weight=class_weight)
+                    train_accuracy = 0.
+                else:
+                    train_loss, train_accuracy = model.train_on_batch(
+                            x_train[batch_ids], y_train_one_hot[batch_ids],
+                            accuracy=True, class_weight=class_weight)
 
                 batch_end_logs = {'loss': train_loss, 'accuracy': train_accuracy}
 
@@ -211,15 +248,37 @@ def main(args):
 
         callbacks.on_train_end(logs={})
     else:
-        model.fit(x_train, y_train_one_hot,
-            shuffle=args.shuffle,
-            nb_epoch=args.n_epochs,
-            batch_size=model_cfg.batch_size,
-            show_accuracy=True,
-            validation_data=(x_validation, y_validation_one_hot),
-            callbacks=callbacks,
-            class_weight=class_weight,
-            verbose=2 if args.log else 1)
+        print('args.n_epochs', args.n_epochs)
+        if isinstance(model, keras.models.Graph):
+            data = {
+                    'input': x_train,
+                    'output': y_train_one_hot
+                    }
+            validation_data = {
+                    'input': x_validation,
+                    'output': y_validation_one_hot
+                    }
+            model.fit(data,
+                shuffle=args.shuffle,
+                nb_epoch=args.n_epochs,
+                batch_size=model_cfg.batch_size,
+                #show_accuracy=True,
+                validation_data=validation_data,
+                callbacks=callbacks,
+                class_weight=class_weight,
+                verbose=2 if args.log else 1)
+            y_hat = model.predict_classes(data)
+            print('val_acc %.04f' % accuracy_score(y_validate, y_hat))
+        else:
+            model.fit(x_train, y_train_one_hot,
+                shuffle=args.shuffle,
+                nb_epoch=args.n_epochs,
+                batch_size=model_cfg.batch_size,
+                show_accuracy=True,
+                validation_data=(x_validation, y_validation_one_hot),
+                callbacks=callbacks,
+                class_weight=class_weight,
+                verbose=2 if args.log else 1)
 
 if __name__ == '__main__':
     parser = modeling.parser.build_keras()

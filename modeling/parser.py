@@ -82,6 +82,8 @@ def build():
             help='Include an sklearn classification report on the validation set at end of each epoch')
     parser.add_argument('--validation-freq', default=1, type=int,
             help='How often to run validation set (only relevant with --extra-train-file')
+    parser.add_argument('--subsetting-function', type=str,
+            help='Name of function in model.py to use to take subsets of training and validation data')
     parser.add_argument('--seed', default=17, type=int,
             help='The seed for the random number generator')
 
