@@ -231,10 +231,19 @@ def load_model(model_dir, model_weights=None):
             model_json[k] = v
 
     if model_weights:
-        if os.path.exists(model_dir + '/' + model_weights):
-            model_json['model_weights'] = model_dir + '/' + model_weights
+        if isinstance(model_weights, bool) and model_weights is True:
+            # Original behavior: only one weights file exists and it has
+            # the weights from the best epoch.
+            model_json['model_weights'] = model_dir + '/model.h5'
+        elif isinstance(model_weights, str):
+            # New behavior: multiple weights files may exist.
+            if os.path.exists(model_dir + '/' + model_weights):
+                model_json['model_weights'] = model_dir + '/' + model_weights
+            else:
+                model_json['model_weights'] = model_weights
         else:
-            model_json['model_weights'] = model_weights
+            raise ValueError('unexpected type for "model_weights" %s (%s)' %
+                    (model_weights, type(model_weights)))
 
     # Re-instantiate ModelConfig using the updated JSON.
     sys.path.append(model_dir)
