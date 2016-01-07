@@ -248,7 +248,6 @@ def main(args):
 
         callbacks.on_train_end(logs={})
     else:
-        print('args.n_epochs', args.n_epochs)
         if isinstance(model, keras.models.Graph):
             data = {
                     'input': x_train,
@@ -267,8 +266,9 @@ def main(args):
                 callbacks=callbacks,
                 class_weight=class_weight,
                 verbose=2 if args.log else 1)
-            y_hat = model.predict_classes(data)
-            print('val_acc %.04f' % accuracy_score(y_validate, y_hat))
+            y_hat = model.predict(validation_data)
+            print('val_acc %.04f' % 
+                    accuracy_score(y_validation, np.argmax(y_hat['output'], axis=1)))
         else:
             model.fit(x_train, y_train_one_hot,
                 shuffle=args.shuffle,
