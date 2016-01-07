@@ -261,7 +261,6 @@ def main(args):
                 shuffle=args.shuffle,
                 nb_epoch=args.n_epochs,
                 batch_size=model_cfg.batch_size,
-                #show_accuracy=True,
                 validation_data=validation_data,
                 callbacks=callbacks,
                 class_weight=class_weight,
