@@ -32,6 +32,7 @@ from modeling.utils import (count_parameters, callable_print,
         load_model_data, load_model_json, load_target_data,
         build_model_id, build_model_path,
         ModelConfig)
+import modeling.preprocess
 import modeling.parser
 
 def main(args):
@@ -77,6 +78,9 @@ def main(args):
     import model
     from model import build_model
 
+    #######################################################################      
+    # Subsetting
+    #######################################################################      
     if args.subsetting_function:
         subsetter = getattr(model, args.subsetting_function)
     else:
@@ -101,6 +105,14 @@ def main(args):
             x_validation, y_validation, y_validation_one_hot,
             n=args.n_validation)
 
+    #######################################################################      
+    # Preprocessing
+    #######################################################################      
+    if args.preprocessing_class:
+        preprocessor = getattr(model, args.preprocessing_class)(seed=args.seed)
+    else:
+        preprocessor = modeling.preprocess.NullPreprocessor()
+
     logging.debug("y_train_one_hot " + str(y_train_one_hot.shape))
     logging.debug("x_train " + str(x_train.shape))
 
@@ -120,10 +132,14 @@ def main(args):
     save_model_info(args, model_path, model_cfg)
 
     if not args.no_save:
+        if args.save_all_checkpoints:
+            filepath = model_path + '/model-{epoch:04d}.h5'
+        else:
+            filepath = model_path + '/model.h5'
         callbacks.append(ModelCheckpoint(
-            filepath=model_path + '/model-{epoch:04d}.h5',
+            filepath=filepath,
             verbose=1,
-            save_best_only=True))
+            save_best_only=not args.save_every_epoch))
 
     callback_logger = logging.info if args.log else callable_print
 
@@ -159,6 +175,11 @@ def main(args):
         epoch = batch = 0
 
         while True:
+            x_train, y_train_one_hot = preprocessor.fit_transform(
+                    x_train, y_train_one_hot)
+            x_validation, y_validation_one_hot = preprocessor.transform(
+                    x_validation, y_validation_one_hot)
+
             iteration = batch % len(args.extra_train_file)
 
             logging.info("epoch {epoch} iteration {iteration} - training with {train_file}".format(
@@ -248,7 +269,13 @@ def main(args):
 
         callbacks.on_train_end(logs={})
     else:
+        x_train, y_train_one_hot = preprocessor.fit_transform(
+                x_train, y_train_one_hot)
+        x_validation, y_validation_one_hot = preprocessor.transform(
+                x_validation, y_validation_one_hot)
+
         print('args.n_epochs', args.n_epochs)
+
         if isinstance(model, keras.models.Graph):
             data = {
                     'input': x_train,
