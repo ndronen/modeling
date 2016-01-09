@@ -1,0 +1,17 @@
+
+{
+    "train_embeddings": true,
+    "regularization_layer": "",
+    "dropout_p": 0.5,
+    "dropout_p_conv": 0.0,
+    "n_embed_dims": 25,
+    "loss": "categorical_crossentropy",
+    "patience": 20,
+    "batch_size": 128,
+    "decay": 0.0,
+    "embedding_max_norm": 1000,
+    "filter_max_norm": 1000,
+    "dense_max_norm": 1000,
+    "l2_penalty": 0.0,
+    "clipnorm": 0
+}
