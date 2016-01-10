@@ -13,5 +13,6 @@
     "filter_max_norm": 1000,
     "dense_max_norm": 1000,
     "l2_penalty": 0.0,
-    "clipnorm": 0
+    "clipnorm": 0,
+    "truncate_gradient": -1
 }
