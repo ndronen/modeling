@@ -233,21 +233,40 @@ def main(args):
             # Validation frequency (this if-block) doesn't necessarily
             # occur in the same iteration as beginning of an epoch
             # (next if-block), so model.evaluate appears twice here.
+            kwargs = { 'verbose': 0 if args.log else 1 }
+            pargs = []
+            validation_data = {}
+            if isinstance(model, keras.models.Graph):
+                validation_data = {
+                        'input': x_validation,
+                        'output': y_validation_one_hot
+                        }
+                pargs = [validation_data]
+            else:
+                pargs = [x_validation, y_validation_one_hot]
+                kwargs['show_accuracy'] = True
+
             if (iteration + 1) % args.validation_freq == 0:
-                val_loss, val_acc = model.evaluate(
-                        x_validation, y_validation_one_hot,
-                        show_accuracy=True,
-                        verbose=0 if args.log else 1)
+                if isinstance(model, keras.models.Graph):
+                    val_loss = model.evaluate(*pargs, **kwargs)
+                    y_hat = model.predict(validation_data)
+                    val_acc = accuracy_score(y_validation, np.argmax(y_hat['output'], axis=1))
+                else:
+                    val_loss, val_acc = model.evaluate(
+                            *pargs, **kwargs)
                 logging.info("epoch {epoch} iteration {iteration} - val_loss: {val_loss} - val_acc: {val_acc}".format(
                         epoch=epoch, iteration=iteration, val_loss=val_loss, val_acc=val_acc))
                 epoch_end_logs = {'iteration': iteration, 'val_loss': val_loss, 'val_acc': val_acc}
                 callbacks.on_epoch_end(epoch, epoch_end_logs)
 
             if batch % len(args.extra_train_file) == 0:
-                val_loss, val_acc = model.evaluate(
-                        x_validation, y_validation_one_hot,
-                        show_accuracy=True,
-                        verbose=0 if args.log else 1)
+                if isinstance(model, keras.models.Graph):
+                    val_loss = model.evaluate(*pargs, **kwargs)
+                    y_hat = model.predict(validation_data)
+                    val_acc = accuracy_score(y_validation, np.argmax(y_hat['output'], axis=1))
+                else:
+                    val_loss, val_acc = model.evaluate(
+                            *pargs, **kwargs)
                 logging.info("epoch {epoch} iteration {iteration} - val_loss: {val_loss} - val_acc: {val_acc}".format(
                         epoch=epoch, iteration=iteration, val_loss=val_loss, val_acc=val_acc))
                 epoch_end_logs = {'iteration': iteration, 'val_loss': val_loss, 'val_acc': val_acc}
