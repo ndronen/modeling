@@ -1,7 +1,9 @@
 {
+    "border_mode": "valid",
     "n_word_dims": 10,
     "n_filters": 10,
     "filter_width": 3,
+    "n_fully_connected": 0,
     "loss": "categorical_crossentropy",
     "patience": 5,
     "batch_size": 128,
@@ -13,5 +15,6 @@
     "dropout_p": 0.0,
     "embedding_max_norm": 1000,
     "filter_max_norm": 1000,
-    "dense_max_norm": 1000
+    "dense_max_norm": 1000,
+    "clipnorm": 0
 }
