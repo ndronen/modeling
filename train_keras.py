@@ -56,6 +56,15 @@ def main(args):
 
     n_classes, target_names, class_weight = load_target_data(args, n_classes)
 
+    if len(class_weight) == 0:
+        n_samples = len(y_train)
+        print('n_samples', n_samples)
+        print('classes', range(n_classes))
+        print('weights', n_samples / (n_classes * np.bincount(y_train)))
+        class_weight = dict(zip(range(n_classes),
+            n_samples / (n_classes * np.bincount(y_train))))
+    print('class_weight', class_weight)
+
     logging.debug("n_classes {0} min {1} max {2}".format(
         n_classes, min(y_train), max(y_train)))
 
