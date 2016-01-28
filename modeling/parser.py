@@ -84,6 +84,12 @@ def build():
             help='How often to run validation set (only relevant with --extra-train-file')
     parser.add_argument('--subsetting-function', type=str,
             help='Name of function in model.py to use to take subsets of training and validation data')
+    parser.add_argument('--preprocessing-class', type=str,
+            help='Name of class in model.py to use to preprocess training and validation data')
+    parser.add_argument('--save-all-checkpoints', action='store_true',
+            help='Save the weights of the model in separate files at every checkpoint (i.e. every epoch if --save-every-epoch; otherwise, at every new best validation set performance).  This causes files to be stored as model-XXXX.h5, where XXXX is the epoch number; without this option, the model is stored as model.h5')
+    parser.add_argument('--save-every-epoch', action='store_true',
+            help='Save the weights of the model every epoch; see also --save-all-checkpoints')
     parser.add_argument('--seed', default=17, type=int,
             help='The seed for the random number generator')
 
