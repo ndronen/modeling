@@ -10,10 +10,15 @@ from keras.regularizers import l2
 from modeling.layers import ImmutableEmbedding
 
 def build_embedding_layer(args):
-    if hasattr(args, 'n_vocab'):
+    try:
         n_embeddings = args.n_vocab
-    else:
+    except AttributeError:
         n_embeddings = args.n_embeddings
+
+    try:
+        mask_zero = args.mask_zero
+    except AttributeError:
+        mask_zero = False
 
     if hasattr(args, 'embedding_weights') and args.embedding_weights is not None:
         W = np.load(args.embedding_weights)
@@ -21,15 +26,15 @@ def build_embedding_layer(args):
             return Embedding(n_embeddings, args.n_embed_dims,
                 weights=[W], input_length=args.input_width,
                 W_constraint=maxnorm(args.embedding_max_norm),
-                mask_zero=args.mask_zero)
+                mask_zero=mask_zero)
         else:
             return ImmutableEmbedding(n_embeddings, args.n_embed_dims,
-                weights=[W], mask_zero=args.mask_zero,
+                weights=[W], mask_zero=mask_zero,
                 input_length=args.input_width)
     else:
         return Embedding(n_embeddings, args.n_embed_dims,
             W_constraint=maxnorm(args.embedding_max_norm),
-            mask_zero=args.mask_zero,
+            mask_zero=mask_zero,
             input_length=args.input_width)
 
 def build_convolutional_layer(args):
