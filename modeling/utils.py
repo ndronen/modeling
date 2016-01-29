@@ -55,7 +55,6 @@ def load_model_data(path, data_name, target_name, n=sys.maxint):
     for i,d in enumerate(datasets):
         if d.ndim == 1:
             datasets[i] = d.reshape((d.shape[0], 1))
-    print([d.shape for d in datasets])
     data = np.concatenate(datasets, axis=1)
     target = hdf5[target_name].value.astype(np.int32)
     hdf5.close()
