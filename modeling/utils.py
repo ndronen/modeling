@@ -97,9 +97,11 @@ def setup_model_dir(args, model_path):
     if not args.no_save:
         if not os.path.exists(model_path):
             os.mkdir(model_path)
-            print('created model directory ' + model_path)
+            if args.verbose:
+                print('created model directory ' + model_path)
         else:
-            print('using existing model directory ' + model_path)
+            if args.verbose:
+                print('using existing model directory ' + model_path)
 
 def load_model_json(args, x_train, n_classes):
     # Load the base model configuration.
@@ -112,9 +114,7 @@ def load_model_json(args, x_train, n_classes):
     for k,v in args.model_cfg:
         str_to_bool = { 'True': True, 'False': False }
         if isinstance(v, str) and v.title() in ['True', 'False']:
-            print('converting %s => %s to boolean' % (k,v))
             v = str_to_bool[v.title()]
-            print('now %s => %s' % (k,v))
         json_cfg[k] = v
 
     # Add some values are derived from the training data.
@@ -157,15 +157,10 @@ def load_target_data(args, n_classes):
             del class_weight[key]
             class_weight[int(key)] = v
 
-    # The target data JSON file contains weights that are determined by
-    # an imbalanced data set.  If we subsequently balance the data set,
-    # we want to be able to ignore those weights during training.
-    if not args.use_class_weights:
-        class_weight = {}
-
     n_classes = len(target_names)
 
-    print(n_classes, target_names, class_weight)
+    if args.verbose:
+        print(n_classes, target_names, class_weight)
 
     return n_classes, target_names, class_weight
 
@@ -187,8 +182,6 @@ def save_model_info(args, model_path, model_cfg):
 def load_all_model_data(data_file, model_cfg, n=sys.maxint):
     data, target = load_model_data(data_file,
             model_cfg.data_name, model_cfg.target_name, n=n)
-
-    print('load_all_model_data', np.bincount(target))
 
     target_one_hot = to_categorical(target, model_cfg.n_classes)
 
