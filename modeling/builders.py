@@ -32,10 +32,17 @@ def build_embedding_layer(args):
                 weights=[W], mask_zero=mask_zero,
                 input_length=args.input_width)
     else:
-        return Embedding(n_embeddings, args.n_embed_dims,
-            W_constraint=maxnorm(args.embedding_max_norm),
-            mask_zero=mask_zero,
-            input_length=args.input_width)
+        if args.train_embeddings is True:
+            return Embedding(n_embeddings, args.n_embed_dims,
+                init=args.embedding_init,
+                W_constraint=maxnorm(args.embedding_max_norm),
+                mask_zero=mask_zero,
+                input_length=args.input_width)
+        else:
+            return ImmutableEmbedding(n_embeddings, args.n_embed_dims,
+                init=args.embedding_init,
+                mask_zero=mask_zero,
+                input_length=args.input_width)
 
 def build_convolutional_layer(args):
     return Convolution1D(args.n_filters, args.filter_width,
