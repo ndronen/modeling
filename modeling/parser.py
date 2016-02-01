@@ -28,6 +28,8 @@ def build_chainer():
 
 def build_keras():
     parser = build()
+    parser.add_argument('--graph-marshalling-class', type=str, default="GraphMarshaller",
+            help='Name of class in model.py to use to marshall data for keras graphs')
     return parser
 
 def build_lasagne():
@@ -47,7 +49,6 @@ def build():
             help='HDF5 file of validation examples.')
     parser.add_argument('data_name', nargs='+', type=str,
             help='Name(s) of the data variable(s) in input HDF5 file.')
-
     parser.add_argument('--target-name', default='target_code', type=str,
             help='Name of the target variable in input HDF5 file.')
     parser.add_argument('--extra-train-file', type=str, nargs='+', default=[],
@@ -58,8 +59,8 @@ def build():
             help='Directory to which to copy model.py and model.json.  This overrides copying to model_dir/UUID.')
     parser.add_argument('--target-data', type=str,
             help='Pickled dictionary of target data from sklearn.preprocessing.LabelEncoder.  The dictionary must contain a key `TARGET_NAME` that maps either to a list of target names or a dictionary mapping target names to their class weights (useful for imbalanced data sets')
-    parser.add_argument('--use-class-weights', action='store_true',
-            help='Whether to use the class weights from the target data file during training (see --target-data)')
+    #parser.add_argument('--use-class-weights', action='store_true',
+    #        help='Whether to use the class weights from the target data file during training (see --target-data)')
     parser.add_argument('--description', type=str,
             help='Short description of this model (data, hyperparameters, etc.)')
     parser.add_argument('--shuffle', default=False, action='store_true',
@@ -74,18 +75,28 @@ def build():
             help="The number of words in the model's vocabulary")
     parser.add_argument('--n-classes', default=-1, type=int,
             help='The number of classes in TARGET_NAME')
+    parser.add_argument('--class-weight-auto', action='store_true',
+            help='Set the class weights based on their frequency in the training set')
+    parser.add_argument('--class-weight-exponent', type=float,
+            help='Raise the class weights to the given power')
     parser.add_argument('--log', action='store_true',
             help='Whether to send console output to log file')
+    parser.add_argument('--verbose', action='store_true',
+            help='Whether to print more during initialization')
     parser.add_argument('--no-save', action='store_true',
             help='Disable saving/copying of model.py and model.json to a unique directory for reproducibility')
     parser.add_argument('--classification-report', action='store_true',
             help='Include an sklearn classification report on the validation set at end of each epoch')
+    parser.add_argument('--confusion-matrix', action='store_true',
+            help='Include an sklearn confusion matrix on the validation set at end of each epoch')
     parser.add_argument('--validation-freq', default=1, type=int,
             help='How often to run validation set (only relevant with --extra-train-file')
     parser.add_argument('--subsetting-function', type=str,
             help='Name of function in model.py to use to take subsets of training and validation data')
     parser.add_argument('--preprocessing-class', type=str,
             help='Name of class in model.py to use to preprocess training and validation data')
+
+
     parser.add_argument('--save-all-checkpoints', action='store_true',
             help='Save the weights of the model in separate files at every checkpoint (i.e. every epoch if --save-every-epoch; otherwise, at every new best validation set performance).  This causes files to be stored as model-XXXX.h5, where XXXX is the epoch number; without this option, the model is stored as model.h5')
     parser.add_argument('--save-every-epoch', action='store_true',

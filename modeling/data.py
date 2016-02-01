@@ -2,6 +2,17 @@ import os
 import h5py
 import numpy as np
 
+class GraphMarshaller(object):
+    """
+    Interface for classes that handle preparing inputs and unpacking
+    outputs of Keras Graph models.
+    """
+    def marshal(self, data, target=None):
+        raise NotImplementedError()
+
+    def unmsrhal(self, output):
+        raise NotImplementedError()
+
 def split_data(hdf5_path, split_size, output_dir=None):
     """
     Split the datasets in an HDF5 file into smaller sets and save them
@@ -233,9 +244,9 @@ def create_window(sentence, position, size=7, nonce=None):
     window_range = np.arange(0, size)
     window_indices = window_range[sent_mask]
 
+    #print('window_start', window_start, 'window_end', window_end, 'sent_range', sent_range, 'sent_mask', sent_mask, 'sent_indices', sent_indices, 'window_range', window_range, 'window_indices', window_indices, 'sentence', sentence, 'position', position)
+
     window = np.zeros(size)
-    window[window_indices]
-    sentence[sent_indices]
     window[window_indices] = sentence[sent_indices]
 
     if nonce is not None:
@@ -264,3 +275,35 @@ def add_window_dataset(hdf5_file, name, size, nonce=None, sentences_name='X'):
 
     windows = create_windows(sentences, lengths, positions, size, nonce)
     hdf5_file.create_dataset(name, data=windows, dtype=np.int32)
+
+def create_contrasting_cases(X, seed=17, values=[7,8,10,12,13,17,18,19,27]):
+    center_idx = int(X.shape[1]/2)
+    rng = np.random.RandomState(seed)
+    Xcc = np.zeros((X.shape[0]*2, X.shape[1]), dtype=X.dtype)
+
+    for i in np.arange(len(X)):
+
+        # Original example
+        j = i * 2
+        Xcc[j, :] = X[i, :]
+
+        # Contrasting case
+        cc = X[i, :].copy()
+
+        while True:
+            replacement_value = rng.choice(values)
+            if replacement_value != cc[center_idx]:
+                break
+
+        cc[center_idx] = replacement_value
+        Xcc[j+1, :] = cc
+
+    return Xcc
+
+def duplicate_values(values):
+    new_values = np.zeros(len(values)*2)
+    for i,value in enumerate(values):
+        j = i * 2
+        new_values[j] = value
+        new_values[j+1] = value
+    return new_values

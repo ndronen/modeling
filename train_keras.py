@@ -15,7 +15,8 @@ import numpy as np
 import theano
 import h5py
 import six
-from sklearn.metrics import classification_report, fbeta_score, accuracy_score
+from sklearn.metrics import (accuracy_score,
+        classification_report, confusion_matrix)
 
 from keras.utils import np_utils
 from keras.optimizers import SGD
@@ -26,7 +27,7 @@ import keras.models
 sys.path.append('.')
 
 from modeling.callbacks import (ClassificationReport,
-        SingleStepLearningRateSchedule)
+        ConfusionMatrix, SingleStepLearningRateSchedule)
 from modeling.utils import (count_parameters, callable_print,
         setup_logging, setup_model_dir, save_model_info,
         load_model_data, load_model_json, load_target_data,
@@ -56,32 +57,35 @@ def main(args):
 
     n_classes, target_names, class_weight = load_target_data(args, n_classes)
 
-    if len(class_weight) == 0:
+    if len(class_weight) == 0 and args.class_weight_auto:
         n_samples = len(y_train)
-        print('n_samples', n_samples)
-        print('classes', range(n_classes))
-        print('weights', n_samples / (n_classes * np.bincount(y_train)))
-        class_weight = dict(zip(range(n_classes),
-            n_samples / (n_classes * np.bincount(y_train))))
-    print('class_weight', class_weight)
+        weights = float(n_samples) / (n_classes * np.bincount(y_train))
+        if args.class_weight_exponent:
+            weights = weights**args.class_weight_exponent
+        class_weight = dict(zip(range(n_classes), weights))
 
-    logging.debug("n_classes {0} min {1} max {2}".format(
-        n_classes, min(y_train), max(y_train)))
+    if args.verbose:
+        logging.debug("n_classes {0} min {1} max {2}".format(
+            n_classes, min(y_train), max(y_train)))
 
     y_train_one_hot = np_utils.to_categorical(y_train, n_classes)
     y_validation_one_hot = np_utils.to_categorical(y_validation, n_classes)
 
-    logging.debug("y_train_one_hot " + str(y_train_one_hot.shape))
-    logging.debug("x_train " + str(x_train.shape))
+    if args.verbose:
+        logging.debug("y_train_one_hot " + str(y_train_one_hot.shape))
+        logging.debug("x_train " + str(x_train.shape))
 
     min_vocab_index = np.min(x_train)
     max_vocab_index = np.max(x_train)
-    logging.debug("min vocab index {0} max vocab index {1}".format(
-        min_vocab_index, max_vocab_index))
+
+    if args.verbose:
+        logging.debug("min vocab index {0} max vocab index {1}".format(
+            min_vocab_index, max_vocab_index))
 
     json_cfg = load_model_json(args, x_train, n_classes)
 
-    logging.debug("loading model")
+    if args.verbose:
+        logging.debug("loading model")
 
     sys.path.append(args.model_dir)
     import model
@@ -91,7 +95,7 @@ def main(args):
     # Subsetting
     #######################################################################      
     if args.subsetting_function:
-        subsetter = getattr(model, args.subsetting_function)
+        subsetter = getattr(M, args.subsetting_function)
     else:
         subsetter = None
 
@@ -118,20 +122,26 @@ def main(args):
     # Preprocessing
     #######################################################################      
     if args.preprocessing_class:
-        preprocessor = getattr(model, args.preprocessing_class)(seed=args.seed)
+        preprocessor = getattr(M, args.preprocessing_class)(seed=args.seed)
     else:
         preprocessor = modeling.preprocess.NullPreprocessor()
 
-    logging.debug("y_train_one_hot " + str(y_train_one_hot.shape))
-    logging.debug("x_train " + str(x_train.shape))
+    if args.verbose:
+        logging.debug("y_train_one_hot " + str(y_train_one_hot.shape))
+        logging.debug("x_train " + str(x_train.shape))
 
     model_cfg = ModelConfig(**json_cfg)
-    logging.info("model_cfg " + str(model_cfg))
-    model = build_model(model_cfg)
-    setattr(model, 'stop_training', False)
+    if args.verbose:
+        logging.info("model_cfg " + str(model_cfg))
+    net = build_model(model_cfg)
+    setattr(net, 'stop_training', False)
+
+    marshaller = None
+    if isinstance(net, keras.models.Graph):
+        marshaller = getattr(model, args.graph_marshalling_class)()
 
     logging.info('model has {n_params} parameters'.format(
-        n_params=count_parameters(model)))
+        n_params=count_parameters(net)))
 
     if len(args.extra_train_file) > 1:
         callbacks = keras.callbacks.CallbackList()
@@ -164,8 +174,15 @@ def main(args):
     if args.classification_report:
         cr = ClassificationReport(x_validation, y_validation,
                 callback_logger,
-                target_names=target_names)
+                target_names=target_names,
+                marshaller=marshaller)
         callbacks.append(cr)
+    
+    if args.confusion_matrix:
+        cm = ConfusionMatrix(x_validation, y_validation,
+                callback_logger,
+                marshaller=marshaller)
+        callbacks.append(cm)
 
     if model_cfg.optimizer == 'SGD':
         callbacks.append(SingleStepLearningRateSchedule(patience=10))
@@ -178,7 +195,7 @@ def main(args):
         train_file_iter = itertools.cycle(args.extra_train_file)
         current_train = args.train_file
 
-        callbacks._set_model(model)
+        callbacks._set_model(net)
         callbacks.on_train_begin(logs={})
 
         epoch = batch = 0
@@ -211,12 +228,11 @@ def main(args):
             for batch_index, (batch_start, batch_end) in enumerate(batches):
                 batch_ids = index_array[batch_start:batch_end]
 
-                if isinstance(model, keras.models.Graph):
-                    data = {
-                            'input': x_train[batch_ids],
-                            'output': y_train_one_hot[batch_ids]
-                            }
-                    train_loss = model.train_on_batch(data, class_weight=class_weight)
+                if isinstance(net, keras.models.Graph):
+                    train_data = marshaller.marshal(
+                            x_train[batch_ids], y_train_one_hot[batch_ids])
+                    train_loss = net.train_on_batch(
+                            train_data, class_weight=class_weight)
                     train_accuracy = 0.
                 else:
                     train_loss, train_accuracy = model.train_on_batch(
@@ -245,23 +261,21 @@ def main(args):
             kwargs = { 'verbose': 0 if args.log else 1 }
             pargs = []
             validation_data = {}
-            if isinstance(model, keras.models.Graph):
-                validation_data = {
-                        'input': x_validation,
-                        'output': y_validation_one_hot
-                        }
+            if isinstance(net, keras.models.Graph):
+                validation_data = marshaller.marshal(
+                        x_validation, y_validation_one_hot)
                 pargs = [validation_data]
             else:
                 pargs = [x_validation, y_validation_one_hot]
                 kwargs['show_accuracy'] = True
 
             if (iteration + 1) % args.validation_freq == 0:
-                if isinstance(model, keras.models.Graph):
-                    val_loss = model.evaluate(*pargs, **kwargs)
-                    y_hat = model.predict(validation_data)
+                if isinstance(net, keras.models.Graph):
+                    val_loss = net.evaluate(*pargs, **kwargs)
+                    y_hat = net.predict(validation_data)
                     val_acc = accuracy_score(y_validation, np.argmax(y_hat['output'], axis=1))
                 else:
-                    val_loss, val_acc = model.evaluate(
+                    val_loss, val_acc = net.evaluate(
                             *pargs, **kwargs)
                 logging.info("epoch {epoch} iteration {iteration} - val_loss: {val_loss} - val_acc: {val_acc}".format(
                         epoch=epoch, iteration=iteration, val_loss=val_loss, val_acc=val_acc))
@@ -269,12 +283,12 @@ def main(args):
                 callbacks.on_epoch_end(epoch, epoch_end_logs)
 
             if batch % len(args.extra_train_file) == 0:
-                if isinstance(model, keras.models.Graph):
-                    val_loss = model.evaluate(*pargs, **kwargs)
-                    y_hat = model.predict(validation_data)
+                if isinstance(net, keras.models.Graph):
+                    val_loss = net.evaluate(*pargs, **kwargs)
+                    y_hat = net.predict(validation_data)
                     val_acc = accuracy_score(y_validation, np.argmax(y_hat['output'], axis=1))
                 else:
-                    val_loss, val_acc = model.evaluate(
+                    val_loss, val_acc = net.evaluate(
                             *pargs, **kwargs)
                 logging.info("epoch {epoch} iteration {iteration} - val_loss: {val_loss} - val_acc: {val_acc}".format(
                         epoch=epoch, iteration=iteration, val_loss=val_loss, val_acc=val_acc))
@@ -282,7 +296,7 @@ def main(args):
                 epoch += 1
                 callbacks.on_epoch_end(epoch, epoch_end_logs)
 
-            if model.stop_training:
+            if net.stop_training:
                 logging.info("epoch {epoch} iteration {iteration} - done training".format(
                     epoch=epoch, iteration=iteration))
                 break
@@ -301,16 +315,13 @@ def main(args):
                 x_train, y_train_one_hot)
         x_validation, y_validation_one_hot = preprocessor.transform(
                 x_validation, y_validation_one_hot)
-        if isinstance(model, keras.models.Graph):
-            data = {
-                    'input': x_train,
-                    'output': y_train_one_hot
-                    }
-            validation_data = {
-                    'input': x_validation,
-                    'output': y_validation_one_hot
-                    }
-            model.fit(data,
+
+        if isinstance(net, keras.models.Graph):
+            train_data = marshaller.marshal(
+                    x_train, y_train_one_hot)
+            validation_data = marshaller.marshal(
+                    x_validation, y_validation_one_hot)
+            net.fit(train_data,
                 shuffle=args.shuffle,
                 nb_epoch=args.n_epochs,
                 batch_size=model_cfg.batch_size,
@@ -318,11 +329,14 @@ def main(args):
                 callbacks=callbacks,
                 class_weight=class_weight,
                 verbose=2 if args.log else 1)
-            y_hat = model.predict(validation_data)
+            y_hat = net.predict(validation_data)
+            y_hat = np.argmax(marshaller.unmarshal(y_hat), axis=1)
+            print(confusion_matrix(y_validation, y_hat))
+            print(classification_report(y_validation, y_hat))
             print('val_acc %.04f' % 
-                    accuracy_score(y_validation, np.argmax(y_hat['output'], axis=1)))
+                    accuracy_score(y_validation, y_hat))
         else:
-            model.fit(x_train, y_train_one_hot,
+            net.fit(x_train, y_train_one_hot,
                 shuffle=args.shuffle,
                 nb_epoch=args.n_epochs,
                 batch_size=model_cfg.batch_size,
