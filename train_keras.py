@@ -27,7 +27,8 @@ import keras.models
 sys.path.append('.')
 
 from modeling.callbacks import (ClassificationReport,
-        ConfusionMatrix, SingleStepLearningRateSchedule)
+        ConfusionMatrix, PredictionCallback,
+        SingleStepLearningRateSchedule)
 from modeling.utils import (count_parameters, callable_print,
         setup_logging, setup_model_dir, save_model_info,
         load_model_data, load_model_json, load_target_data,
@@ -171,18 +172,25 @@ def main(args):
         callbacks.append(EarlyStopping(
             monitor='val_loss', patience=model_cfg.patience, verbose=1))
 
+    #######################################################################      
+    # Callbacks that need validation set predictions.
+    #######################################################################      
+
+    pc = PredictionCallback(x_validation, callback_logger,
+            marshaller=marshaller)
+
     if args.classification_report:
         cr = ClassificationReport(x_validation, y_validation,
                 callback_logger,
-                target_names=target_names,
-                marshaller=marshaller)
-        callbacks.append(cr)
+                target_names=target_names)
+        pc.add(cr)
     
     if args.confusion_matrix:
         cm = ConfusionMatrix(x_validation, y_validation,
-                callback_logger,
-                marshaller=marshaller)
-        callbacks.append(cm)
+                callback_logger)
+        pc.add(cm)
+
+    callbacks.append(pc)
 
     if model_cfg.optimizer == 'SGD':
         callbacks.append(SingleStepLearningRateSchedule(patience=10))

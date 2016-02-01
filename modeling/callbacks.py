@@ -19,10 +19,22 @@ def predict(model, x, marshaller):
         y_hat = model.predict_classes(self.x, verbose=0)
     return y_hat
 
-class ConfusionMatrix(Callback):
-    def __init__(self, x, y, logger, iteration_freq=10, marshaller=None):
+class PredictionCallback(Callback):
+    def __init__(self, x, logger, marshaller=None, iteration_freq=10):
         self.__dict__.update(locals())
-        del self.self
+        self.callbacks = []
+
+    def add(self, callback):
+        self.callbacks.append(callback)
+
+    def on_batch_begin(self, batch, logs={}):
+        pass
+
+    def on_batch_end(self, batch, logs={}):
+        pass
+
+    def on_epoch_begin(self, epoch, logs={}):
+        pass
 
     def on_epoch_end(self, epoch, logs={}):
         if 'iteration' in logs.keys() and logs['iteration'] % self.iteration_freq != 0:
@@ -31,6 +43,26 @@ class ConfusionMatrix(Callback):
             return
 
         y_hat = predict(self.model, self.x, self.marshaller)
+        logs['y_hat'] = y_hat
+        for cb in self.callbacks:
+            cb.on_epoch_end(epoch, logs)
+
+    def on_train_begin(self, logs={}):
+        pass
+
+    def on_train_end(self, logs={}):
+        pass
+
+class ConfusionMatrix(Callback):
+    def __init__(self, x, y, logger, iteration_freq=10, marshaller=None):
+        self.__dict__.update(locals())
+        del self.self
+
+    def on_epoch_end(self, epoch, logs={}):
+        try:
+            y_hat = logs['y_hat']
+        except KeyError:
+            y_hat = predict(self.model, self.x, self.marshaller)
         self.logger(confusion_matrix(self.y, y_hat))
 
 class ClassificationReport(Callback):
@@ -46,16 +78,14 @@ class ClassificationReport(Callback):
             self.target_names = [str(tn) for tn in target_names]
 
     def on_epoch_end(self, epoch, logs={}):
-        if 'iteration' in logs.keys() and logs['iteration'] % self.iteration_freq != 0:
-            # If we've broken a large training set into smaller chunks, we don't
-            # need to run the classification report after every chunk.
-            return
+        try:
+            y_hat = logs['y_hat']
+        except KeyError:
+            y_hat = predict(self.model, self.x, self.marshaller)
 
-        y_hat = predict(self.model, self.x, self.marshaller)
-        report = classification_report(
+        self.logger(classification_report(
                 self.y, y_hat,
-                labels=self.labels, target_names=self.target_names)
-        self.logger(report)
+                labels=self.labels, target_names=self.target_names))
 
 class OptimizerMonitor(Callback):
     def __init__(self, logger):
