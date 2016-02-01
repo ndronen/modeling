@@ -337,12 +337,6 @@ def main(args):
                 callbacks=callbacks,
                 class_weight=class_weight,
                 verbose=2 if args.log else 1)
-            y_hat = net.predict(validation_data)
-            y_hat = np.argmax(marshaller.unmarshal(y_hat), axis=1)
-            print(confusion_matrix(y_validation, y_hat))
-            print(classification_report(y_validation, y_hat))
-            print('val_acc %.04f' % 
-                    accuracy_score(y_validation, y_hat))
         else:
             net.fit(x_train, y_train_one_hot,
                 shuffle=args.shuffle,
