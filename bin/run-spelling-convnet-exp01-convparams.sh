@@ -9,20 +9,19 @@ experiment_name=$(echo $0 | sed -r 's/.*-(exp[0-9][0-9]-[a-zA-Z0-9][a-zA-Z0-9]*)
 experiment_dir=$model_dir/$experiment_name
 mkdir -p $experiment_dir
 
-#for operation in delete insert substitute transpose
 for operation in delete
 do
-    for n_embed_dims in 100
+    for n_embed_dims in 10 100 300
     do
-        for n_filters in 1000 
+        for n_filters in 100 1000 3000
         do
-            for filter_width in 5
+            for filter_width in 2 3 4 5
             do
-                for n_fully_connected in 1 2 3 4 5 6 7
+                for n_fully_connected in 1
                 do
                     for n_residual_blocks in 0
                     do
-                        for n_hidden in 100 
+                        for n_hidden in 100 300 1000
                         do
                             echo ./train_keras.py $model_dir \
                                 $data_dir/$operation-${errors}errors1word-distance-$distance${nonce}.h5 \
@@ -38,9 +37,9 @@ do
                                 --class-weight-auto \
                                 --class-weight-exponent 3 \
                                 --early-stopping-metric f2 \
-                                --n-validation 100000 \
                                 --log \
-                                --verbose
+                                --verbose \
+                                --n-epochs 10
                         done
                     done
                 done
