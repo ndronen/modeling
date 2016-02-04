@@ -30,6 +30,8 @@ def build_keras():
     parser = build()
     parser.add_argument('--graph-marshalling-class', type=str, default="GraphMarshaller",
             help='Name of class in model.py to use to marshall data for keras graphs')
+    parser.add_argument('--early-stopping-metric', type=str, choices=['f1', 'f2', 'f0.5'],
+            help='Metric to use for early stopping (usually it is validation loss)')
     return parser
 
 def build_lasagne():
@@ -67,6 +69,8 @@ def build():
             help='Shuffle the data in each minibatch')
     parser.add_argument('--n-epochs', default=sys.maxsize, type=int,
             help='The maximum number of epochs to train')
+    parser.add_argument('--early-stopping', action='store_true',
+            help='Whether to use early stopping by monitoring validation set loss')
     parser.add_argument('--n-train', default=sys.maxsize, type=int,
             help='The number of training examples to use')
     parser.add_argument('--n-validation', default=sys.maxsize, type=int,
@@ -95,8 +99,6 @@ def build():
             help='Name of function in model.py to use to take subsets of training and validation data')
     parser.add_argument('--preprocessing-class', type=str,
             help='Name of class in model.py to use to preprocess training and validation data')
-
-
     parser.add_argument('--save-all-checkpoints', action='store_true',
             help='Save the weights of the model in separate files at every checkpoint (i.e. every epoch if --save-every-epoch; otherwise, at every new best validation set performance).  This causes files to be stored as model-XXXX.h5, where XXXX is the epoch number; without this option, the model is stored as model.h5')
     parser.add_argument('--save-every-epoch', action='store_true',
