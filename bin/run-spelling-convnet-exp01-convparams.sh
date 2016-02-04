@@ -11,11 +11,11 @@ mkdir -p $experiment_dir
 
 for operation in delete
 do
-    for n_embed_dims in 10 100 300
+    for n_embed_dims in 10 30 100 300
     do
-        for n_filters in 100 1000 3000
+        for n_filters in 100 300 1000 3000
         do
-            for filter_width in 2 3 4 5
+            for filter_width in 2 3 4 5 6
             do
                 for n_fully_connected in 1
                 do
@@ -27,19 +27,18 @@ do
                                 $data_dir/$operation-${errors}errors1word-distance-$distance${nonce}.h5 \
                                 $data_dir/$operation-${errors}errors1word-distance-$distance${nonce}.h5 \
                                 word \
-                                --model-dest $experiment_dir/op_${operation}_n_embed_dims_${n_embed_dims}_n_filters_${n_filters}_filter_width_${filter_width}_n_fully_connected_${n_fully_connected}_n_residual_blocks_${n_residual_blocks}_n_hidden_${n_hidden} \
                                 --target-name target \
+                                --model-dest $experiment_dir/op_${operation}_n_embed_dims_${n_embed_dims}_n_filters_${n_filters}_filter_width_${filter_width}_n_fully_connected_${n_fully_connected}_n_residual_blocks_${n_residual_blocks}_n_hidden_${n_hidden} \
                                 --n-embeddings 61 \
-                                --model-cfg n_embed_dims=$n_embed_dims n_filters=$n_filters filter_width=$filter_width n_fully_connected=${n_fully_connected} n_residual_blocks=$n_residual_blocks n_hidden=$n_hidden patience=10 \
+                                --model-cfg n_embed_dims=$n_embed_dims n_filters=$n_filters filter_width=$filter_width n_fully_connected=${n_fully_connected} n_residual_blocks=$n_residual_blocks n_hidden=$n_hidden patience=5 \
                                 --shuffle \
                                 --confusion-matrix \
                                 --classification-report \
                                 --class-weight-auto \
                                 --class-weight-exponent 3 \
                                 --early-stopping-metric f2 \
-                                --log \
                                 --verbose \
-                                --n-epochs 10
+                                --log
                         done
                     done
                 done
