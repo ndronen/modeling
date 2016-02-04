@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import keras
-from keras.callbacks import Callback
+from keras.callbacks import Callback, EarlyStopping
 import keras.callbacks
 import numpy as np
 import six
@@ -16,7 +16,7 @@ def predict(model, x, marshaller):
         y_hat = marshaller.unmarshal(output)
         y_hat = np.argmax(y_hat, axis=1)
     else:
-        y_hat = model.predict_classes(self.x, verbose=0)
+        y_hat = model.predict_classes(x, verbose=0)
     return y_hat
 
 class PredictionCallback(Callback):
@@ -26,6 +26,11 @@ class PredictionCallback(Callback):
 
     def add(self, callback):
         self.callbacks.append(callback)
+
+    def _set_model(self, model):
+        self.model = model
+        for cb in self.callbacks:
+            cb._set_model(model)
 
     def on_batch_begin(self, batch, logs={}):
         pass
@@ -53,8 +58,28 @@ class PredictionCallback(Callback):
     def on_train_end(self, logs={}):
         pass
 
+class EarlyStoppingWithMetric(Callback):
+    def __init__(self, x, y, logger, metric, delegate=None, marshaller=None):
+        self.__dict__.update(locals())
+        del self.self
+        if delegate is None:
+            self.delegate = EarlyStopping(monitor='metric', mode='max', verbose=1)
+
+    def _set_model(self, model):
+        self.model = model
+        self.delegate._set_model(model)
+
+    def on_epoch_end(self, epoch, logs={}):
+        try:
+            y_hat = logs['y_hat']
+        except KeyError:
+            y_hat = predict(self.model, self.x, self.marshaller)
+        logs['metric'] = self.metric(self.y, y_hat)
+        self.logger('EarlyStoppingWithMetric metric %.03f' % logs['metric'])
+        self.delegate.on_epoch_end(epoch, logs)
+
 class ConfusionMatrix(Callback):
-    def __init__(self, x, y, logger, iteration_freq=10, marshaller=None):
+    def __init__(self, x, y, logger, marshaller=None):
         self.__dict__.update(locals())
         del self.self
 
@@ -66,7 +91,7 @@ class ConfusionMatrix(Callback):
         self.logger(confusion_matrix(self.y, y_hat))
 
 class ClassificationReport(Callback):
-    def __init__(self, x, y, logger, target_names=None, iteration_freq=10, marshaller=None):
+    def __init__(self, x, y, logger, target_names=None, marshaller=None):
         self.__dict__.update(locals())
         del self.self
 
