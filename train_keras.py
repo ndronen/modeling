@@ -16,6 +16,7 @@ import theano
 import h5py
 import six
 from sklearn.metrics import (accuracy_score,
+        f1_score, fbeta_score,
         classification_report, confusion_matrix)
 
 from keras.utils import np_utils
@@ -28,6 +29,7 @@ sys.path.append('.')
 
 from modeling.callbacks import (ClassificationReport,
         ConfusionMatrix, PredictionCallback,
+        EarlyStoppingWithMetric,
         SingleStepLearningRateSchedule)
 from modeling.utils import (count_parameters, callable_print,
         setup_logging, setup_model_dir, save_model_info,
@@ -163,21 +165,13 @@ def main(args):
 
     callback_logger = logging.info if args.log else callable_print
 
-    if args.n_epochs < sys.maxsize:
-        # Number of epochs overrides patience.  If the number of epochs
-        # is specified on the command line, the model is trained for
-        # exactly that number; otherwise, the model is trained with
-        # early stopping using the patience specified in the model 
-        # configuration.
-        callbacks.append(EarlyStopping(
-            monitor='val_loss', patience=model_cfg.patience, verbose=1))
-
     #######################################################################      
     # Callbacks that need validation set predictions.
     #######################################################################      
 
     pc = PredictionCallback(x_validation, callback_logger,
             marshaller=marshaller)
+    callbacks.append(pc)
 
     if args.classification_report:
         cr = ClassificationReport(x_validation, y_validation,
@@ -190,7 +184,28 @@ def main(args):
                 callback_logger)
         pc.add(cm)
 
-    callbacks.append(pc)
+    if args.early_stopping or args.early_stopping_metric is not None:
+        if args.early_stopping_metric is None:
+            callbacks.append(EarlyStopping(
+                    monitor='val_loss', patience=model_cfg.patience,
+                    verbose=1))
+        else:
+            es = EarlyStopping(monitor='metric',
+                    mode='max', patience=model_cfg.patience, verbose=1)
+            if args.early_stopping_metric == 'f1':
+                metric = f1_score
+            elif args.early_stopping_metric == 'f2':
+                metric = lambda y,y_hat: fbeta_score(y, y_hat, beta=2)
+            elif args.early_stopping_metric == 'f0.5':
+                metric = lambda y,y_hat: fbeta_score(y, y_hat, beta=0.5)
+            else:
+                raise ValueError(("don't know the early stopping metric %s" % 
+                        args.early_stopping_metric))
+
+            cb = EarlyStoppingWithMetric(
+                    x_validation, y_validation, callback_logger,
+                    delegate=es, metric=metric, marshaller=marshaller)
+            pc.add(cb)
 
     if model_cfg.optimizer == 'SGD':
         callbacks.append(SingleStepLearningRateSchedule(patience=10))
