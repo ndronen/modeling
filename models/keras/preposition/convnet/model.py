@@ -20,7 +20,176 @@ from modeling.builders import (build_embedding_layer,
     build_convolutional_layer, build_pooling_layer,
     build_dense_layer, build_optimizer, load_weights)
 
-def error_free_examples(path):
+class EncartaExamplesWithOKWindows():
+    def __init__(self, seed=17):
+        self.random_state = np.random.RandomState(seed=seed)
+        self.prepositions = set([7, 8, 10, 12, 13, 17, 18, 19, 27])
+
+    def fit_transform(self, X, y=None):
+        return self.transform(X, y)
+
+    def transform(self, X, y=None):
+        # Select the examples where the middle column is in our
+        # preposition set.
+        middle_column = X[:, X.shape[1]/2]
+        ok = np.array([True] * len(X))
+        for i,val in enumerate(middle_column):
+            if val not in self.prepositions:
+                ok[i] = False
+        print('in %d out %d' % (len(X), len(X[ok])))
+        if y is not None:
+            return X[ok], y[ok]
+        else:
+            return X[ok]
+
+class TrainingSetRealExamples():
+    def __init__(self, seed=17):
+        self.random_state = np.random.RandomState(seed=seed)
+
+    def fit_transform(self, X, y=None):
+        evens = [i*2 for i in np.arange(X.shape[0]/2)]
+        if y is not None:
+            return X[evens], y[evens]
+        else:
+            return X[evens]
+
+    def transform(self, X, y=None):
+        if y is None:
+            return X
+        else:
+            return X, y
+
+class RandomPermuter(object):
+    def __init__(self, seed=17):
+        self.random_state = np.random.RandomState(seed=seed)
+
+    def fit(self, X, y=None):
+        pass
+
+    def _transform(self, X, y=None):
+        X = X.copy()
+        middle_column_idx = np.int(X.shape[1]/2)
+        middle_column_values = X[:, middle_column_idx]
+        random_values = self.random_state.permutation(middle_column_values)
+        X[:, middle_column_idx] = random_values
+        if y is None:
+            return X
+        else:
+            return X, y
+
+class ValidationSetRealExamples(RandomPermuter):
+    def __init__(self, seed=17):
+        self.random_state = np.random.RandomState(seed=seed)
+
+    def fit_transform(self, X, y=None):
+        if y is None:
+            return X
+        else:
+            return X, y
+
+    def transform(self, X, y=None):
+        evens = [i*2 for i in np.arange(X.shape[0]/2)]
+        if y is not None:
+            return X[evens], y[evens]
+        else:
+            return X[evens]
+
+class TrainingSetPrepositionRandomPermuter(RandomPermuter):
+    def fit_transform(self, X, y=None):
+        return self._transform(X, y)
+
+    def transform(self, X, y=None):
+        if y is None:
+            return X
+        else:
+            return X, y
+
+class ValidationSetPrepositionRandomPermuter(RandomPermuter):
+    def fit_transform(self, X, y=None):
+        if y is None:
+            return X
+        else:
+            return X, y
+
+    def transform(self, X, y=None):
+        return self._transform(X, y)
+
+class RandomRegularizer(object):
+    def __init__(self, seed=17):
+        self.random_state = np.random.RandomState(seed=seed)
+
+    def fit(self, X, y=None):
+        pass
+
+    def _transform(self, X, y=None):
+        X = X.copy()
+        middle_column_idx = np.int(X.shape[1]/2)
+        middle_column_values = X[:, middle_column_idx]
+        value_set = list(set(middle_column_values.tolist()))
+        random_values = []
+        for i in np.arange(len(X)):
+            current_value = middle_column_values[i]
+            while True:
+                random_value = self.random_state.choice(value_set)
+                if random_value != current_value:
+                    random_values.append(random_value)
+                    break
+        X[:, middle_column_idx] = random_values
+        if y is None:
+            return X
+        else:
+            return X, y
+
+class TrainingSetPrepositionRandomRegularizer(RandomRegularizer):
+    """
+    Takes examples in the form of a vector of indices.  Replaces each
+    middle value in each vector with a value from some other example.
+    """
+    def fit_transform(self, X, y=None):
+        return self._transform(X, y)
+
+    def transform(self, X, y=None):
+        if y is None:
+            return X
+        else:
+            return X, y
+
+class ValidationSetPrepositionRandomRegularizer(RandomRegularizer):
+    def fit_transform(self, X, y=None):
+        if y is None:
+            return X
+        else:
+            return X, y
+
+    def transform(self, X, y=None):
+        return self._transform(X, y)
+
+class UnconstrainedTrainingSetPrepositionPermuter(object):
+    def __init__(self, seed=17):
+        self.random_state = np.random.RandomState(seed=seed)
+
+    def fit(self, X, y=None):
+        pass
+
+    def fit_transform(self, X, y=None):
+        X = X.copy()
+        middle_column_idx = np.int(X.shape[1]/2)
+        middle_column_values = X[:, middle_column_idx]
+        random_values = self.random_state.permutation(middle_column_values)
+        X[:, middle_column_idx] = random_values
+        if y is None:
+            return X
+        else:
+            return X, y
+
+    def transform(self, X, y=None):
+        if y is None:
+            return X
+        else:
+            return X, y
+
+
+def real_examples(path):
     f = h5py.File(path)
     # Target_code is 0 when the preposition in the example is the original
     # preposition in the corpus and 1 when the preposition has been randomly
@@ -29,44 +198,15 @@ def error_free_examples(path):
     f.close()
     return idx 
 
+def random_regularization_examples(path):
+    f = h5py.File(path)
+    idx = f['target_code'].value == 1
+    f.close()
+    return idx 
+
 class Identity(Layer):
     def get_output(self, train):
         return self.get_input(train)
-
-def build_residual_block(name, input_shape, n_hidden, n_skip=2):
-    """
-    Rough sketch of building blocks of layers for residual learning.
-    See http://arxiv.org/abs/1512.03385 for motivation.
-    """
-    block = Graph()
-    input_name = 'x'
-    block.add_input(input_name, input_shape=input_shape)
-
-    # The current keras graph implementation doesn't allow you to connect
-    # an input node to an output node.  Use Identity to work around that.
-    block.add_node(Identity(), name=name+'identity', input=input_name)
-    prev_layer = name+'identity'
-
-    for i in range(n_skip):
-        layer_name = 'h' + str(i)
-
-        l = build_dense_layer(args, n_hidden=n_hidden)
-        block.add_node(l, name=layer_name, input=prev_layer)
-        prev_layer = layer_name
-
-        # Haven't gotten this to work yet.
-        #bn = BatchNormalization()
-        #block.add_node(bn, name=layer_name+'bn', input=prev_layer)
-        #prev_layer = layer_name+'bn'
-
-        if i < n_skip:
-            a = Activation('relu')
-            block.add_node(a, name=layer_name+'relu', input=prev_layer)
-            prev_layer = layer_name+'relu'
-
-    block.add_output(name=name+'output', inputs=[name+'identity', prev_layer], merge_mode='sum')
-
-    return block
 
 def build_residual_model(args):
     graph = Graph()
@@ -148,12 +288,14 @@ def build_residual_model(args):
 def build_ordinary_model(args):
     model = Sequential()
     model.add(build_embedding_layer(args))
-    #if args.dropout_embedding_p > 0.:
-    #    model.add(Dropout(args.dropout_embedding_p))
+    if args.dropout_embedding_p > 0.:
+        model.add(Dropout(args.dropout_embedding_p))
     model.add(build_convolutional_layer(args))
     if 'normalization' in args.regularization_layer:
         model.add(BatchNormalization())
     model.add(Activation('relu'))
+    if args.dropout_conv_p > 0.:
+        model.add(Dropout(args.dropout_conv_p))
 
     model.add(build_pooling_layer(args))
     model.add(Flatten())
@@ -179,9 +321,7 @@ def build_ordinary_model(args):
         print(k)
         if k == 'layers':
             for l in v:
-                print('%s => %s' %(l['name'], l))
-        else:
-            print(v)
+                print('  => %s' % l['name'])
 
     return model
 

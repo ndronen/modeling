@@ -10,19 +10,39 @@ from keras.regularizers import l2
 from modeling.layers import ImmutableEmbedding
 
 def build_embedding_layer(args):
+    try:
+        n_embeddings = args.n_vocab
+    except AttributeError:
+        n_embeddings = args.n_embeddings
+
+    try:
+        mask_zero = args.mask_zero
+    except AttributeError:
+        mask_zero = False
+
     if hasattr(args, 'embedding_weights') and args.embedding_weights is not None:
         W = np.load(args.embedding_weights)
         if args.train_embeddings is True or args.train_embeddings == 'true':
-            return Embedding(args.n_embeddings, args.n_embed_dims,
+            return Embedding(n_embeddings, args.n_embed_dims,
                 weights=[W], input_length=args.input_width,
-                W_constraint=maxnorm(args.embedding_max_norm))
+                W_constraint=maxnorm(args.embedding_max_norm),
+                mask_zero=mask_zero)
         else:
-            return ImmutableEmbedding(args.n_embeddings, args.n_embed_dims,
-                weights=[W], input_length=args.input_width)
+            return ImmutableEmbedding(n_embeddings, args.n_embed_dims,
+                weights=[W], mask_zero=mask_zero,
+                input_length=args.input_width)
     else:
-        return Embedding(args.n_embeddings, args.n_embed_dims,
-            W_constraint=maxnorm(args.embedding_max_norm),
-            input_length=args.input_width)
+        if args.train_embeddings is True:
+            return Embedding(n_embeddings, args.n_embed_dims,
+                init=args.embedding_init,
+                W_constraint=maxnorm(args.embedding_max_norm),
+                mask_zero=mask_zero,
+                input_length=args.input_width)
+        else:
+            return ImmutableEmbedding(n_embeddings, args.n_embed_dims,
+                init=args.embedding_init,
+                mask_zero=mask_zero,
+                input_length=args.input_width)
 
 def build_convolutional_layer(args):
     return Convolution1D(args.n_filters, args.filter_width,
@@ -33,7 +53,7 @@ def build_convolutional_layer(args):
 def build_pooling_layer(args):
     return MaxPooling1D(
         pool_length=args.input_width - args.filter_width + 1,
-        stride=1, ignore_border=False)
+        stride=1)
 
 def build_dense_layer(args, n_hidden=None, activation='linear'):
     if n_hidden is None:

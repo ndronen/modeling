@@ -1,55 +1,45 @@
 import os
 import numpy as np
-from keras.callbacks import Callback
+import keras
+from keras.callbacks import Callback, EarlyStopping
 import keras.callbacks
 import numpy as np
 import six
-from sklearn.metrics import classification_report, fbeta_score
+from sklearn.metrics import classification_report, fbeta_score, confusion_matrix
 
-'''
-class SklearnMetricCheckpointClassification(Callback):
-    def __init__(self, model_path, x, y, metric='f1_score', verbose=0, save_best_only=False):
-        super(Callback, self).__init__()
+def predict(model, x, marshaller):
+    if isinstance(model, keras.models.Graph):
+        if marshaller is None:
+            raise ValueError("a marshaller is required with Graphs")
+        x = marshaller.marshal(x)
+        output = model.predict(x)
+        y_hat = marshaller.unmarshal(output)
+        y_hat = np.argmax(y_hat, axis=1)
+    else:
+        y_hat = model.predict_classes(x, verbose=0)
+    return y_hat
+
+class PredictionCallback(Callback):
+    def __init__(self, x, logger, marshaller=None, iteration_freq=10):
         self.__dict__.update(locals())
-        self.best = np.Inf
+        self.callbacks = []
 
-    def on_epoch_end(self, epoch, logs={}):
-        if self.save_best_only:
-            self.model.predict_classses
+    def add(self, callback):
+        self.callbacks.append(callback)
 
-            current = logs.get(self.monitor)
-            if current is None:
-                warnings.warn("Can save best model only with %s available, skipping." % (self.monitor), RuntimeWarning)
-            else:
-                if current < self.best:
-                    if self.verbose > 0:
-                        print("Epoch %05d: %s improved from %0.5f to %0.5f, saving model to %s"
-                              % (epoch, self.monitor, self.best, current, self.filepath))
-                    self.best = current
-                    self.model.save_weights(self.filepath, overwrite=True)
-                else:
-                    if self.verbose > 0:
-                        print("Epoch %05d: %s did not improve" % (epoch, self.monitor))
-        else:
-            if self.verbose > 0:
-                print("Epoch %05d: saving model to %s" % (epoch, self.filepath))
-            self.model.save_weights(self.filepath, overwrite=True)
-'''
+    def _set_model(self, model):
+        self.model = model
+        for cb in self.callbacks:
+            cb._set_model(model)
 
-class ClassificationReport(Callback):
-    def __init__(self, x, y, logger, target_names=None, iteration_freq=10):
-        self.x = x
-        self.y = y
-        self.logger = logger
-        self.iteration_freq = iteration_freq
+    def on_batch_begin(self, batch, logs={}):
+        pass
 
-        if target_names is not None:
-            labels = np.arange(len(target_names))
-        else:
-            labels = None
+    def on_batch_end(self, batch, logs={}):
+        pass
 
-        self.labels = labels
-        self.target_names = [str(tn) for tn in target_names]
+    def on_epoch_begin(self, epoch, logs={}):
+        pass
 
     def on_epoch_end(self, epoch, logs={}):
         if 'iteration' in logs.keys() and logs['iteration'] % self.iteration_freq != 0:
@@ -57,20 +47,70 @@ class ClassificationReport(Callback):
             # need to run the classification report after every chunk.
             return
 
-        y_hat = self.model.predict_classes(self.x, verbose=0)
-        fbeta = fbeta_score(self.y, y_hat, beta=0.5, average='weighted')
-        report = classification_report(
-                self.y, y_hat,
-                labels=self.labels, target_names=self.target_names)
+        y_hat = predict(self.model, self.x, self.marshaller)
+        logs['y_hat'] = y_hat
+        for cb in self.callbacks:
+            cb.on_epoch_end(epoch, logs)
 
-        if 'iteration' in logs.keys():
-            self.logger("epoch {epoch} iteration {iteration} - val_fbeta(beta=0.5): {fbeta}".format(
-                epoch=epoch, iteration=logs['iteration'], fbeta=fbeta))
+    def on_train_begin(self, logs={}):
+        pass
+
+    def on_train_end(self, logs={}):
+        pass
+
+class EarlyStoppingWithMetric(Callback):
+    def __init__(self, x, y, logger, metric, delegate=None, marshaller=None):
+        self.__dict__.update(locals())
+        del self.self
+        if delegate is None:
+            self.delegate = EarlyStopping(monitor='metric', mode='max', verbose=1)
+
+    def _set_model(self, model):
+        self.model = model
+        self.delegate._set_model(model)
+
+    def on_epoch_end(self, epoch, logs={}):
+        try:
+            y_hat = logs['y_hat']
+        except KeyError:
+            y_hat = predict(self.model, self.x, self.marshaller)
+        logs['metric'] = self.metric(self.y, y_hat)
+        self.logger('EarlyStoppingWithMetric metric %.03f' % logs['metric'])
+        self.delegate.on_epoch_end(epoch, logs)
+
+class ConfusionMatrix(Callback):
+    def __init__(self, x, y, logger, marshaller=None):
+        self.__dict__.update(locals())
+        del self.self
+
+    def on_epoch_end(self, epoch, logs={}):
+        try:
+            y_hat = logs['y_hat']
+        except KeyError:
+            y_hat = predict(self.model, self.x, self.marshaller)
+        self.logger(confusion_matrix(self.y, y_hat))
+
+class ClassificationReport(Callback):
+    def __init__(self, x, y, logger, target_names=None, marshaller=None):
+        self.__dict__.update(locals())
+        del self.self
+
+        self.labels = np.arange(max(y)+1)
+
+        if target_names is None:
+            self.target_names = [str(t) for t in self.labels]
         else:
-            self.logger("epoch {epoch} - val_fbeta(beta=0.5): {fbeta}".format(
-                epoch=epoch, fbeta=fbeta))
+            self.target_names = [str(tn) for tn in target_names]
 
-        self.logger(report)
+    def on_epoch_end(self, epoch, logs={}):
+        try:
+            y_hat = logs['y_hat']
+        except KeyError:
+            y_hat = predict(self.model, self.x, self.marshaller)
+
+        self.logger(classification_report(
+                self.y, y_hat,
+                labels=self.labels, target_names=self.target_names))
 
 class OptimizerMonitor(Callback):
     def __init__(self, logger):
