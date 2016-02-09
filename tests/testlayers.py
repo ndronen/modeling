@@ -23,7 +23,8 @@ class TestHierarchicalSoftmax(unittest.TestCase):
         net = keras.models.Sequential()
         net.add(keras.layers.core.Dense(100, input_dim=self.input_dim, activation='relu'))
         net.add(HierarchicalSoftmax(
-            self.n_hsm_classes, self.n_outputs_per_class,
+            self.output_size, self.n_hsm_classes,
+            #self.n_hsm_classes, self.n_outputs_per_class,
             batch_size=self.batch_size))
         net.compile(loss='categorical_crossentropy', optimizer='Adam')
         x = np.random.normal(size=(self.batch_size, self.input_dim))
@@ -32,7 +33,8 @@ class TestHierarchicalSoftmax(unittest.TestCase):
         self.assertEqual((self.batch_size, n_classes), target.shape)
 
     def test_hierarchical_softmax_isolated(self):
-        layer = HierarchicalSoftmax(self.n_hsm_classes, self.n_outputs_per_class,
+        layer = HierarchicalSoftmax(self.output_size, self.n_hsm_classes,
+                #self.n_outputs_per_class,
                 batch_size=self.batch_size,
                 input_dim=self.input_dim)
         layer.build()

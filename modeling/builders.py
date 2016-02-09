@@ -69,8 +69,8 @@ def build_hierarchical_softmax_layer(args):
     # and decomposes the softmax into a prediction that's conditioned on
     # class membership.
     n_hsm_classes = args.n_hsm_classes
-    n_outputs_per_class = int(np.round(args.n_classes / args.n_hsm_classes))
-    return HierarchicalSoftmax(n_hsm_classes, n_outputs_per_class,
+    #n_outputs_per_class = int(np.round(args.n_classes / float(args.n_hsm_classes)))
+    return HierarchicalSoftmax(args.n_classes, args.n_hsm_classes,
             batch_size=args.batch_size)
 
 def load_weights(args, model):

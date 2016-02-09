@@ -64,7 +64,7 @@ class Transpose(Layer):
         return {"name": self.__class__.__name__}
 
 class HierarchicalSoftmax(Layer):
-    def __init__(self, nb_classes, nb_outputs_per_class, batch_size,
+    def __init__(self, output_dim, nb_hsm_classes, batch_size,
             init='glorot_uniform',
             W1_weights=None, W1_regularizer=None, W1_constraint=None,
             W2_weights=None, W2_regularizer=None, W2_constraint=None,
@@ -76,7 +76,8 @@ class HierarchicalSoftmax(Layer):
         del self.self
 
         self.init = initializations.get(init)
-        self.output_dim = nb_classes * nb_outputs_per_class
+        #self.output_dim = nb_classes * nb_outputs_per_class
+        self.nb_outputs_per_class = int(np.ceil(output_dim / float(nb_hsm_classes)))
 
         self.W1_regularizer = regularizers.get(W1_regularizer)
         self.b1_regularizer = regularizers.get(b1_regularizer)
@@ -102,11 +103,11 @@ class HierarchicalSoftmax(Layer):
         #print('self.input_shape', self.input_shape)
         n_features = self.input_shape[1]
 
-        self.W1 = self.init((n_features, self.nb_classes))
-        self.b1 = K.zeros((self.nb_classes,))
+        self.W1 = self.init((n_features, self.nb_hsm_classes))
+        self.b1 = K.zeros((self.nb_hsm_classes,))
 
-        self.W2 = self.init((self.nb_classes, n_features, self.nb_outputs_per_class))
-        self.b2 = K.zeros((self.nb_classes, self.nb_outputs_per_class))
+        self.W2 = self.init((self.nb_hsm_classes, n_features, self.nb_outputs_per_class))
+        self.b2 = K.zeros((self.nb_hsm_classes, self.nb_outputs_per_class))
 
         self.trainable_weights = [self.W1, self.b1,
                 self.W2, self.b2]
@@ -130,13 +131,14 @@ class HierarchicalSoftmax(Layer):
 
     @property
     def output_shape(self):
+        print('HierarchicalSoftmax.output_shape', self.input_shape[0], self.output_dim)
         return (self.input_shape[0], self.output_dim)
 
     def _get_output(self, X):
         output = theano.tensor.nnet.h_softmax(X,
                 #self.input_shape[1], self.output_dim,
                 self.batch_size, self.output_dim,
-                self.nb_classes, self.nb_outputs_per_class,
+                self.nb_hsm_classes, self.nb_outputs_per_class,
                 self.W1, self.b1,
                 self.W2, self.b2)
         return output
