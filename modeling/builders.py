@@ -7,7 +7,7 @@ from keras.optimizers import (SGD, Adam, Adadelta, Adagrad, RMSprop)
 from keras.constraints import maxnorm
 from keras.regularizers import l2
 
-from modeling.layers import ImmutableEmbedding
+from modeling.layers import ImmutableEmbedding, HierarchicalSoftmax
 
 def build_embedding_layer(args):
     try:
@@ -62,6 +62,16 @@ def build_dense_layer(args, n_hidden=None, activation='linear'):
             W_regularizer=l2(args.l2_penalty),
             W_constraint=maxnorm(args.dense_max_norm),
             activation=activation)
+
+def build_hierarchical_softmax_layer(args):
+    # This n_classes is different from the number of unique target values in
+    # the training set.  Hierarchical softmax assigns each word to a class
+    # and decomposes the softmax into a prediction that's conditioned on
+    # class membership.
+    n_hsm_classes = args.n_hsm_classes
+    n_outputs_per_class = int(np.round(args.n_classes / args.n_hsm_classes))
+    return HierarchicalSoftmax(n_hsm_classes, n_outputs_per_class,
+            batch_size=args.batch_size)
 
 def load_weights(args, model):
     if hasattr(args, 'model_weights') and args.model_weights is not None:

@@ -125,7 +125,7 @@ def load_model_json(args, x_train, n_classes):
 
 def load_target_data(args, n_classes):
     if not args.target_data:
-        return n_classes, None, {}
+        return n_classes, None, None
 
     target_names_dict = json.load(open(args.target_data))
 
@@ -144,7 +144,7 @@ def load_target_data(args, n_classes):
                     args.target_data + "is missing a key: " + str(e))
     elif isinstance(target_data, list):
         target_names = target_data
-        class_weight = {}
+        class_weight = None
     else:
         raise ValueError("Target data must be list or dict, not " +
                 str(type(target_data)))
