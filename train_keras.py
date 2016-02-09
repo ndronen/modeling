@@ -60,7 +60,7 @@ def main(args):
 
     n_classes, target_names, class_weight = load_target_data(args, n_classes)
 
-    if len(class_weight) == 0 and args.class_weight_auto:
+    if class_weight is None and args.class_weight_auto:
         n_samples = len(y_train)
         weights = float(n_samples) / (n_classes * np.bincount(y_train))
         if args.class_weight_exponent:
@@ -170,7 +170,7 @@ def main(args):
     #######################################################################      
 
     pc = PredictionCallback(x_validation, callback_logger,
-            marshaller=marshaller)
+            marshaller=marshaller, batch_size=model_cfg.batch_size)
     callbacks.append(pc)
 
     if args.classification_report:
@@ -258,7 +258,7 @@ def main(args):
                             train_data, class_weight=class_weight)
                     train_accuracy = 0.
                 else:
-                    train_loss, train_accuracy = model.train_on_batch(
+                    train_loss, train_accuracy = net.train_on_batch(
                             x_train[batch_ids], y_train_one_hot[batch_ids],
                             accuracy=True, class_weight=class_weight)
 
@@ -280,8 +280,11 @@ def main(args):
 
             # Validation frequency (this if-block) doesn't necessarily
             # occur in the same iteration as beginning of an epoch
-            # (next if-block), so model.evaluate appears twice here.
-            kwargs = { 'verbose': 0 if args.log else 1 }
+            # (next if-block), so net.evaluate appears twice here.
+            kwargs = {
+                    'batch_size': model_cfg.batch_size,
+                    'verbose': 0 if args.log else 1 
+                    }
             pargs = []
             validation_data = {}
             if isinstance(net, keras.models.Graph):
