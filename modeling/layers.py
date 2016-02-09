@@ -64,7 +64,8 @@ class Transpose(Layer):
         return {"name": self.__class__.__name__}
 
 class HierarchicalSoftmax(Layer):
-    def __init__(self, nb_classes, nb_outputs_per_class, init='glorot_uniform',
+    def __init__(self, nb_classes, nb_outputs_per_class, batch_size,
+            init='glorot_uniform',
             W1_weights=None, W1_regularizer=None, W1_constraint=None,
             W2_weights=None, W2_regularizer=None, W2_constraint=None,
             b1_regularizer=None, b1_constraint=None,
@@ -98,7 +99,8 @@ class HierarchicalSoftmax(Layer):
         super(HierarchicalSoftmax, self).__init__(**kwargs)
 
     def build(self):
-        n_features = self.input_shape[2]
+        #print('self.input_shape', self.input_shape)
+        n_features = self.input_shape[1]
 
         self.W1 = self.init((n_features, self.nb_classes))
         self.b1 = K.zeros((self.nb_classes,))
@@ -132,7 +134,8 @@ class HierarchicalSoftmax(Layer):
 
     def _get_output(self, X):
         output = theano.tensor.nnet.h_softmax(X,
-                self.input_shape[1], self.output_dim,
+                #self.input_shape[1], self.output_dim,
+                self.batch_size, self.output_dim,
                 self.nb_classes, self.nb_outputs_per_class,
                 self.W1, self.b1,
                 self.W2, self.b2)
