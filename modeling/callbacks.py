@@ -7,7 +7,7 @@ import numpy as np
 import six
 from sklearn.metrics import classification_report, fbeta_score, confusion_matrix
 
-def predict(model, x, marshaller):
+def predict(model, x, marshaller, batch_size=128):
     if isinstance(model, keras.models.Graph):
         if marshaller is None:
             raise ValueError("a marshaller is required with Graphs")
@@ -16,11 +16,11 @@ def predict(model, x, marshaller):
         y_hat = marshaller.unmarshal(output)
         y_hat = np.argmax(y_hat, axis=1)
     else:
-        y_hat = model.predict_classes(x, verbose=0)
+        y_hat = model.predict_classes(x, verbose=0, batch_size=batch_size)
     return y_hat
 
 class PredictionCallback(Callback):
-    def __init__(self, x, logger, marshaller=None, iteration_freq=10):
+    def __init__(self, x, logger, marshaller=None, iteration_freq=10, batch_size=128):
         self.__dict__.update(locals())
         self.callbacks = []
 
@@ -47,7 +47,7 @@ class PredictionCallback(Callback):
             # need to run the classification report after every chunk.
             return
 
-        y_hat = predict(self.model, self.x, self.marshaller)
+        y_hat = predict(self.model, self.x, self.marshaller, batch_size=self.batch_size)
         logs['y_hat'] = y_hat
         for cb in self.callbacks:
             cb.on_epoch_end(epoch, logs)
@@ -59,7 +59,7 @@ class PredictionCallback(Callback):
         pass
 
 class EarlyStoppingWithMetric(Callback):
-    def __init__(self, x, y, logger, metric, delegate=None, marshaller=None):
+    def __init__(self, x, y, logger, metric, delegate=None, marshaller=None, batch_size=128):
         self.__dict__.update(locals())
         del self.self
         if delegate is None:
@@ -73,13 +73,13 @@ class EarlyStoppingWithMetric(Callback):
         try:
             y_hat = logs['y_hat']
         except KeyError:
-            y_hat = predict(self.model, self.x, self.marshaller)
+            y_hat = predict(self.model, self.x, self.marshaller, batch_size=self.batch_size)
         logs['metric'] = self.metric(self.y, y_hat)
         self.logger('EarlyStoppingWithMetric metric %.03f' % logs['metric'])
         self.delegate.on_epoch_end(epoch, logs)
 
 class ConfusionMatrix(Callback):
-    def __init__(self, x, y, logger, marshaller=None):
+    def __init__(self, x, y, logger, marshaller=None, batch_size=128):
         self.__dict__.update(locals())
         del self.self
 
@@ -87,11 +87,11 @@ class ConfusionMatrix(Callback):
         try:
             y_hat = logs['y_hat']
         except KeyError:
-            y_hat = predict(self.model, self.x, self.marshaller)
+            y_hat = predict(self.model, self.x, self.marshaller, batch_size=self.batch_size)
         self.logger(confusion_matrix(self.y, y_hat))
 
 class ClassificationReport(Callback):
-    def __init__(self, x, y, logger, target_names=None, marshaller=None):
+    def __init__(self, x, y, logger, target_names=None, marshaller=None, batch_size=128):
         self.__dict__.update(locals())
         del self.self
 
@@ -106,7 +106,7 @@ class ClassificationReport(Callback):
         try:
             y_hat = logs['y_hat']
         except KeyError:
-            y_hat = predict(self.model, self.x, self.marshaller)
+            y_hat = predict(self.model, self.x, self.marshaller, batch_size=self.batch_size)
 
         self.logger(classification_report(
                 self.y, y_hat,
