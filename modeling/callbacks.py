@@ -12,7 +12,7 @@ def predict(model, x, marshaller, batch_size=128):
         if marshaller is None:
             raise ValueError("a marshaller is required with Graphs")
         x = marshaller.marshal(x)
-        output = model.predict(x)
+        output = model.predict(x, batch_size=batch_size)
         y_hat = marshaller.unmarshal(output)
         y_hat = np.argmax(y_hat, axis=1)
     else:
