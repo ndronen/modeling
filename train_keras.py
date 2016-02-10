@@ -301,7 +301,7 @@ def main(args):
             if (iteration + 1) % args.validation_freq == 0:
                 if isinstance(net, keras.models.Graph):
                     val_loss = net.evaluate(*pargs, **kwargs)
-                    y_hat = net.predict(validation_data)
+                    y_hat = net.predict(validation_data, batch_size=model_cfg.batch_size)
                     val_acc = accuracy_score(y_validation, np.argmax(y_hat['output'], axis=1))
                 else:
                     val_loss, val_acc = net.evaluate(
@@ -314,7 +314,7 @@ def main(args):
             if batch % len(args.extra_train_file) == 0:
                 if isinstance(net, keras.models.Graph):
                     val_loss = net.evaluate(*pargs, **kwargs)
-                    y_hat = net.predict(validation_data)
+                    y_hat = net.predict(validation_data, batch_size=model_cfg.batch_size)
                     val_acc = accuracy_score(y_validation, np.argmax(y_hat['output'], axis=1))
                 else:
                     val_loss, val_acc = net.evaluate(
