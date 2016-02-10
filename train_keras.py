@@ -256,6 +256,9 @@ def main(args):
                             x_train[batch_ids], y_train_one_hot[batch_ids])
                     train_loss = net.train_on_batch(
                             train_data, class_weight=class_weight)
+                    # It looks like train_on_batch returns a different
+                    # type for graph than sequential models.
+                    train_loss = train_loss[0]
                     train_accuracy = 0.
                 else:
                     train_loss, train_accuracy = net.train_on_batch(
