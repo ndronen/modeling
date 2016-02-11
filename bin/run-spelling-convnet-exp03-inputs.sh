@@ -3,7 +3,7 @@
 model_dir=models/keras/spelling/convnet
 data_dir=data/spelling/experimental/
 
-experiment_name=$(echo $0 | sed -r 's/.*-(exp[0-9][0-9]-[a-zA-Z0-9][a-zA-Z0-9]*).sh/\1/')
+experiment_name=$(echo $0 | sed -r 's/.*-(exp[0-9][0-9]-..*).sh/\1/')
 experiment_dir=$model_dir/$experiment_name
 mkdir -p $experiment_dir
 
