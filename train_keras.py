@@ -15,9 +15,7 @@ import numpy as np
 import theano
 import h5py
 import six
-from sklearn.metrics import (accuracy_score,
-        f1_score, fbeta_score,
-        classification_report, confusion_matrix)
+from sklearn.metrics import accuracy_score
 
 from keras.utils import np_utils
 from keras.optimizers import SGD
@@ -29,7 +27,7 @@ sys.path.append('.')
 
 from modeling.callbacks import (ClassificationReport,
         ConfusionMatrix, PredictionCallback,
-        EarlyStoppingWithMetric,
+        DelegatingMetricCallback,
         SingleStepLearningRateSchedule)
 from modeling.utils import (count_parameters, callable_print,
         setup_logging, setup_model_dir, save_model_info,
@@ -153,15 +151,6 @@ def main(args):
 
     save_model_info(args, model_path, model_cfg)
 
-    if not args.no_save:
-        if args.save_all_checkpoints:
-            filepath = model_path + '/model-{epoch:04d}.h5'
-        else:
-            filepath = model_path + '/model.h5'
-        callbacks.append(ModelCheckpoint(
-            filepath=filepath,
-            verbose=1,
-            save_best_only=not args.save_every_epoch))
 
     callback_logger = logging.info if args.log else callable_print
 
@@ -184,28 +173,44 @@ def main(args):
                 callback_logger)
         pc.add(cm)
 
-    if args.early_stopping or args.early_stopping_metric is not None:
-        if args.early_stopping_metric is None:
-            callbacks.append(EarlyStopping(
-                    monitor='val_loss', patience=model_cfg.patience,
-                    verbose=1))
-        else:
-            es = EarlyStopping(monitor='metric',
-                    mode='max', patience=model_cfg.patience, verbose=1)
-            if args.early_stopping_metric == 'f1':
-                metric = f1_score
-            elif args.early_stopping_metric == 'f2':
-                metric = lambda y,y_hat: fbeta_score(y, y_hat, beta=2)
-            elif args.early_stopping_metric == 'f0.5':
-                metric = lambda y,y_hat: fbeta_score(y, y_hat, beta=0.5)
-            else:
-                raise ValueError(("don't know the early stopping metric %s" % 
-                        args.early_stopping_metric))
+    def get_mode(metric_name):
+        return {
+                'val_loss': 'min',
+                'val_acc': 'max',
+                'val_f1': 'max',
+                'val_f2': 'max',
+                'val_f0.5': 'max'
+                }[metric_name]
 
-            cb = EarlyStoppingWithMetric(
-                    x_validation, y_validation, callback_logger,
-                    delegate=es, metric=metric, marshaller=marshaller)
-            pc.add(cb)
+    if args.early_stopping or args.early_stopping_metric is not None:
+        es = EarlyStopping(monitor=args.early_stopping_metric,
+                mode=get_mode(args.early_stopping_metric),
+                patience=model_cfg.patience,
+                verbose=1)
+        cb = DelegatingMetricCallback(
+                x_validation, y_validation, callback_logger,
+                delegate=es,
+                metric_name=args.early_stopping_metric,
+                marshaller=marshaller)
+        pc.add(cb)
+
+    if not args.no_save:
+        if args.save_all_checkpoints:
+            filepath = model_path + '/model-{epoch:04d}.h5'
+        else:
+            filepath = model_path + '/model.h5'
+        mc = ModelCheckpoint(
+            filepath=filepath,
+            mode=get_mode(args.checkpoint_metric),
+            verbose=1,
+            monitor=args.checkpoint_metric,
+            save_best_only=not args.save_every_epoch)
+        cb = DelegatingMetricCallback(
+                x_validation, y_validation, callback_logger,
+                delegate=mc,
+                metric_name=args.checkpoint_metric,
+                marshaller=marshaller)
+        pc.add(cb)
 
     if model_cfg.optimizer == 'SGD':
         callbacks.append(SingleStepLearningRateSchedule(patience=10))

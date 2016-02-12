@@ -5,7 +5,8 @@ from keras.callbacks import Callback, EarlyStopping
 import keras.callbacks
 import numpy as np
 import six
-from sklearn.metrics import classification_report, fbeta_score, confusion_matrix
+from sklearn.metrics import (classification_report, 
+        confusion_matrix, f1_score, fbeta_score)
 
 def predict(model, x, marshaller, batch_size=128):
     if isinstance(model, keras.models.Graph):
@@ -58,12 +59,10 @@ class PredictionCallback(Callback):
     def on_train_end(self, logs={}):
         pass
 
-class EarlyStoppingWithMetric(Callback):
-    def __init__(self, x, y, logger, metric, delegate=None, marshaller=None, batch_size=128):
+class DelegatingMetricCallback(Callback):
+    def __init__(self, x, y, logger, metric_name, delegate, marshaller=None, batch_size=128):
         self.__dict__.update(locals())
         del self.self
-        if delegate is None:
-            self.delegate = EarlyStopping(monitor='metric', mode='max', verbose=1)
 
     def _set_model(self, model):
         self.model = model
@@ -74,9 +73,19 @@ class EarlyStoppingWithMetric(Callback):
             y_hat = logs['y_hat']
         except KeyError:
             y_hat = predict(self.model, self.x, self.marshaller, batch_size=self.batch_size)
-        logs['metric'] = self.metric(self.y, y_hat)
-        self.logger('EarlyStoppingWithMetric metric %.03f' % logs['metric'])
+        metric = self.build_metric(logs)
+        logs[self.metric_name] = metric(self.y, y_hat)
+        self.logger('%s %.03f' % (self.metric_name, logs[self.metric_name]))
         self.delegate.on_epoch_end(epoch, logs)
+
+    def build_metric(self, logs):
+        return {
+                'val_loss': lambda y,y_hat: logs['val_loss'],
+                'val_acc': lambda y,y_hat: logs['val_acc'],
+                'val_f1': f1_score,
+                'val_f1': lambda y,y_hat: fbeta_score(y, y_hat, beta=0.5),
+                'val_f2': lambda y,y_hat: fbeta_score(y, y_hat, beta=2)
+                }[self.metric_name]
 
 class ConfusionMatrix(Callback):
     def __init__(self, x, y, logger, marshaller=None, batch_size=128):
