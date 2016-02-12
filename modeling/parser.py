@@ -30,8 +30,12 @@ def build_keras():
     parser = build()
     parser.add_argument('--graph-marshalling-class', type=str, default="GraphMarshaller",
             help='Name of class in model.py to use to marshall data for keras graphs')
-    parser.add_argument('--early-stopping-metric', type=str, choices=['f1', 'f2', 'f0.5'],
-            help='Metric to use for early stopping (usually it is validation loss)')
+    parser.add_argument('--early-stopping-metric', type=str, default='val_loss',
+            choices=['val_loss', 'val_f1', 'val_f2', 'val_f0.5'],
+            help='Metric to use for early stopping')
+    parser.add_argument('--checkpoint-metric', type=str, default='val_loss',
+            choices=['val_loss', 'val_f1', 'val_f2', 'val_f0.5'],
+            help='Metric to use for model checkpointing')
     return parser
 
 def build_lasagne():
