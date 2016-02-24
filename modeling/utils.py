@@ -273,8 +273,9 @@ def load_predict(model_dir, data_file, model_weights=None):
     probs, preds = predict_proba(model, model_data.data)
     return model, model_cfg, model_data, probs, preds
 
-def load_predict_save(model_dir, data_file, output_dir=None, model_weights=None):
-    model_name = os.path.basename(os.path.dirname(model_dir))
+def load_predict_save(model_dir, data_file, model_name=None, output_dir=None, model_weights=None):
+    if model_name is None:
+        model_name = os.path.basename(os.path.dirname(model_dir))
     data_name = os.path.basename(data_file)
     data_prefix = os.path.splitext(data_name)[0]
 
