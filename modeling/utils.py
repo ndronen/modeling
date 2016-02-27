@@ -102,7 +102,7 @@ def setup_model_dir(args, model_path):
             if args.verbose:
                 print('using existing model directory ' + model_path)
 
-def load_model_json(args, x_train, n_classes):
+def load_model_json(args, x_train=None, n_classes=None):
     # Load the base model configuration.
     json_cfg = json.load(open(args.model_dir + '/model.json'))
 
@@ -117,11 +117,21 @@ def load_model_json(args, x_train, n_classes):
         json_cfg[k] = v
 
     # Add some values are derived from the training data.
-    json_cfg['n_embeddings'] = max(args.n_embeddings, np.max(x_train) + 1)
-    json_cfg['input_width'] = x_train.shape[1]
-    json_cfg['n_classes'] = n_classes
+    #json_cfg['n_embeddings'] = max(args.n_embeddings, np.max(x_train) + 1)
+    #json_cfg['input_width'] = x_train.shape[1]
+    #json_cfg['n_classes'] = n_classes
+
+    #json_cfg['n_embeddings'] = -1
+    #json_cfg['input_width'] = -1
+    #json_cfg['n_classes'] = -1
 
     return json_cfg
+
+def balanced_class_weights(y, n_classes, class_weight_exponent=1):
+    n_samples = len(y)
+    weights = float(n_samples) / (n_classes * np.bincount(y))
+    weights = weights**class_weight_exponent
+    return dict(zip(range(n_classes), weights))
 
 def load_target_data(args, n_classes):
     if not args.target_data:

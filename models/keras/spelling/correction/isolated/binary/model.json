@@ -1,0 +1,28 @@
+{
+    "n_word_dims": 0,
+    "n_filters": 0,
+    "filter_width": 0,
+    "n_fully_connected": 0,
+    "n_residual_blocks": 0,
+
+    "train_embeddings": true,
+    "embedding_init": "uniform",
+    "batch_normalization": true,
+
+    "optimizer": "Adam",
+    "loss": "categorical_crossentropy",
+    "l2_penalty": 0.0,
+
+    "dropout_embedding_p": 0.0,
+    "dropout_conv_p": 0.0,
+    "dropout_fc_p": 0.0,
+
+    "patience": 1,
+    "batch_size": 128,
+
+    "embedding_max_norm": 1000,
+    "filter_max_norm": 1000,
+    "dense_max_norm": 1000,
+    "clipnorm": 0,
+    "border_mode": "valid"
+}

@@ -49,9 +49,9 @@ def build():
             description='Train a model.')
     parser.add_argument('model_dir', metavar="MODEL_DIR", type=str,
             help='The base directory of this model.  Must contain a model.py (model code) and a model.json (hyperparameters).  Model configuration and weights are saved to model_dir/UUID.')
-    parser.add_argument('train_file', metavar='TRAIN_FILE', type=str,
+    parser.add_argument('train_path', metavar='TRAIN_PATH', type=str,
             help='HDF5 file of training examples.')
-    parser.add_argument('validation_file', metavar='VALIDATION_FILE', type=str,
+    parser.add_argument('validation_path', metavar='VALIDATION_PATH', type=str,
             help='HDF5 file of validation examples.')
     parser.add_argument('data_name', nargs='+', type=str,
             help='Name(s) of the data variable(s) in input HDF5 file.')

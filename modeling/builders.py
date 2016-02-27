@@ -9,11 +9,16 @@ from keras.regularizers import l2
 
 from modeling.layers import ImmutableEmbedding, HierarchicalSoftmax
 
-def build_embedding_layer(args):
+def build_embedding_layer(args, input_width=None):
     try:
         n_embeddings = args.n_vocab
     except AttributeError:
         n_embeddings = args.n_embeddings
+
+    try:
+        input_width = args.input_width
+    except AttributeError:
+        assert input_width is not None
 
     try:
         mask_zero = args.mask_zero
@@ -24,25 +29,25 @@ def build_embedding_layer(args):
         W = np.load(args.embedding_weights)
         if args.train_embeddings is True or args.train_embeddings == 'true':
             return Embedding(n_embeddings, args.n_embed_dims,
-                weights=[W], input_length=args.input_width,
+                weights=[W], input_length=input_width,
                 W_constraint=maxnorm(args.embedding_max_norm),
                 mask_zero=mask_zero)
         else:
             return ImmutableEmbedding(n_embeddings, args.n_embed_dims,
                 weights=[W], mask_zero=mask_zero,
-                input_length=args.input_width)
+                input_length=input_width)
     else:
         if args.train_embeddings is True:
             return Embedding(n_embeddings, args.n_embed_dims,
                 init=args.embedding_init,
                 W_constraint=maxnorm(args.embedding_max_norm),
                 mask_zero=mask_zero,
-                input_length=args.input_width)
+                input_length=input_width)
         else:
             return ImmutableEmbedding(n_embeddings, args.n_embed_dims,
                 init=args.embedding_init,
                 mask_zero=mask_zero,
-                input_length=args.input_width)
+                input_length=input_width)
 
 def build_convolutional_layer(args):
     return Convolution1D(args.n_filters, args.filter_width,
@@ -50,9 +55,19 @@ def build_convolutional_layer(args):
         border_mode=args.border_mode,
         W_regularizer=l2(args.l2_penalty))
 
-def build_pooling_layer(args):
+def build_pooling_layer(args, input_width=None, filter_width=None):
+    try:
+        input_width = args.input_width
+    except AttributeError:
+        assert input_width is not None
+
+    try:
+        filter_width = args.filter_width
+    except AttributeError:
+        assert filter_width is not None
+
     return MaxPooling1D(
-        pool_length=args.input_width - args.filter_width + 1,
+        pool_length=input_width - filter_width + 1,
         stride=1)
 
 def build_dense_layer(args, n_hidden=None, activation='linear'):
