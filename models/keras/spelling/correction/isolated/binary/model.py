@@ -55,12 +55,15 @@ class SingleFileDataset(object):
             self.target_one_hot[target_name] = np_utils.to_categorical(target, n_classes)
         f.close()
 
-    def get_dict(self):
+    def get_dict(self, one_hot=True):
         d = {}
         for data_name in self.data_name:
             d[data_name] = self.data[data_name]
         for target_name in self.target_name:
-            d[target_name] = self.target[target_name]
+            if one_hot:
+                d[target_name] = self.target_one_hot[target_name]
+            else:
+                d[target_name] = self.target[target_name]
         return d
 
     def class_weights(self, class_weight_exponent):
