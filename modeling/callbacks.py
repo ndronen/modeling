@@ -97,6 +97,7 @@ class ConfusionMatrix(Callback):
             y_hat = logs['y_hat']
         except KeyError:
             y_hat = predict(self.model, self.x, self.marshaller, batch_size=self.batch_size)
+        self.logger('\nConfusion matrix')
         self.logger(confusion_matrix(self.y, y_hat))
 
 class ClassificationReport(Callback):
@@ -117,6 +118,7 @@ class ClassificationReport(Callback):
         except KeyError:
             y_hat = predict(self.model, self.x, self.marshaller, batch_size=self.batch_size)
 
+        self.logger('\nClassification report')
         self.logger(classification_report(
                 self.y, y_hat,
                 labels=self.labels, target_names=self.target_names))
