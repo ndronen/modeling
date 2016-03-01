@@ -49,7 +49,7 @@ class LoggerWriter:
 def callable_print(s):
     print(s)
 
-def load_model_data(path, data_name, target_name, n=sys.maxint):
+def load_model_data(path, data_name, target_name, n=sys.maxsize):
     hdf5 = h5py.File(path, 'r')
     datasets = [hdf5[d].value.astype(np.int32) for d in data_name]
     for i,d in enumerate(datasets):
@@ -65,66 +65,55 @@ def load_model_data(path, data_name, target_name, n=sys.maxint):
 
     return data, target
 
-def setup_logging(args, model_path):
-    if args.log and not args.no_save:
-        logging.basicConfig(filename=model_path + 'model.log',
-                format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
-                datefmt='%m-%d %H:%M',
-                level=logging.DEBUG)
-        stdout = LoggerWriter(logging.info)
-        stderr = LoggerWriter(logging.warning)
-    else:
-        logging.basicConfig(level=logging.DEBUG)
-        stdout = sys.stdout
-        stderr = sys.stderr
+def setup_logging(log_path=None):
+    logging.basicConfig(filename=log_path,
+            format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+            datefmt='%m-%d %H:%M',
+            level=logging.DEBUG)
+    stdout = LoggerWriter(logging.info)
+    stderr = LoggerWriter(logging.warning)
     return stdout, stderr
 
-def build_model_id(args):
-    if args.model_dest:
-        return args.model_dest
+def build_model_id(config):
+    if config.model_dest:
+        return config.model_dest
     else:
         return uuid.uuid1().hex
 
-def build_model_path(args, model_id):
+def build_model_path(config, model_id):
     # TODO: Windows compatibility.
-    if len(args.model_dest):
-        return args.model_dest + '/'
+    if len(config.model_dest):
+        return config.model_dest + '/'
     else:
-        return args.model_dir + '/' + model_id + '/'
+        return config.model_dir + '/' + model_id + '/'
 
-def setup_model_dir(args, model_path):
-    if not args.no_save:
+def setup_model_dir(config, model_path):
+    if 'persistent' in config.mode:
         if not os.path.exists(model_path):
             os.mkdir(model_path)
-            if args.verbose:
-                print('created model directory ' + model_path)
-        else:
-            if args.verbose:
-                print('using existing model directory ' + model_path)
 
-def load_model_json(args, x_train=None, n_classes=None):
+def load_model_json(config, x_train=None, n_classes=None):
     # Load the base model configuration.
-    json_cfg = json.load(open(args.model_dir + '/model.json'))
+    json_cfg = json.load(open(config.model_dir + '/model.json'))
 
     # Copy command-line arguments.
-    for k,v in vars(args).iteritems():
+    for k,v in vars(config).items():
         json_cfg[k] = v
     # Copy (overriding) model parameters provided on the command-line.
-    for k,v in args.model_cfg:
+    for k,v in config.model_cfg:
         str_to_bool = { 'True': True, 'False': False }
         if isinstance(v, str) and v.title() in ['True', 'False']:
             v = str_to_bool[v.title()]
         json_cfg[k] = v
 
     # Add some values are derived from the training data.
-    #json_cfg['n_embeddings'] = max(args.n_embeddings, np.max(x_train) + 1)
-    #json_cfg['input_width'] = x_train.shape[1]
-    #json_cfg['n_classes'] = n_classes
+    if x_train is not None:
+        json_cfg['n_embeddings'] = max(config.n_embeddings, np.max(x_train) + 1)
+        json_cfg['input_width'] = x_train.shape[1]
 
-    #json_cfg['n_embeddings'] = -1
-    #json_cfg['input_width'] = -1
-    #json_cfg['n_classes'] = -1
-
+    if n_classes is not None:
+        json_cfg['n_classes'] = n_classes
+    
     return json_cfg
 
 def balanced_class_weights(y, n_classes, class_weight_exponent=1):
@@ -133,25 +122,25 @@ def balanced_class_weights(y, n_classes, class_weight_exponent=1):
     weights = weights**class_weight_exponent
     return dict(zip(range(n_classes), weights))
 
-def load_target_data(args, n_classes):
-    if not args.target_data:
+def load_target_data(config, n_classes):
+    if not config.target_data:
         return n_classes, None, None
 
-    target_names_dict = json.load(open(args.target_data))
+    target_names_dict = json.load(open(config.target_data))
 
     try:
-        target_data = target_names_dict[args.target_name]
+        target_data = target_names_dict[config.target_name]
     except KeyError:
-        raise ValueError("Invalid key " + args.target_name +
-                " for dictionary in " + args.target_data)
+        raise ValueError("Invalid key " + config.target_name +
+                " for dictionary in " + config.target_data)
 
     if isinstance(target_data, dict):
         try:
             target_names = target_data['names']
             class_weight = target_data['weights']
-        except KeyError, e:
+        except KeyError as e:
             raise ValueError("Target data dictionary from " +
-                    args.target_data + "is missing a key: " + str(e))
+                    config.target_data + "is missing a key: " + str(e))
     elif isinstance(target_data, list):
         target_names = target_data
         class_weight = None
@@ -168,27 +157,32 @@ def load_target_data(args, n_classes):
 
     n_classes = len(target_names)
 
-    if args.verbose:
+    if config.verbose:
         print(n_classes, target_names, class_weight)
 
     return n_classes, target_names, class_weight
 
-def save_model_info(args, model_path, model_cfg):
-    if args.no_save:
-        return
+def save_model_info(config, model_path):
+    assert config.description is not None
+    assert config.model_dir is not None
+    assert model_path is not None
 
-    if args.description:
-        with open(model_path + '/README.txt', 'w') as f:
-            f.write(args.description + '\n')
+    with open(model_path + '/README.txt', 'w') as f:
+        f.write(config.description + '\n')
 
     # Save model hyperparameters and code.
     for model_file in ['model.py', 'model.json']:
-        shutil.copyfile(args.model_dir + '/' + model_file,
+        shutil.copyfile(config.model_dir + '/' + model_file,
                 model_path + '/' + model_file)
 
-    json.dump(vars(model_cfg), open(model_path + '/args.json', 'w'))
+    model_info = {}
+    for k,v in vars(config).items():
+        if k not in ['stdout', 'stderr', 'callback_logger']:
+            model_info[k] = v
 
-def load_all_model_data(data_file, model_cfg, n=sys.maxint):
+    json.dump(model_info, open(model_path + '/config.json', 'w'))
+
+def load_all_model_data(data_file, model_cfg, n=sys.maxsize):
     data, target = load_model_data(data_file,
             model_cfg.data_name, model_cfg.target_name, n=n)
 
@@ -224,9 +218,9 @@ def load_all_model_data(data_file, model_cfg, n=sys.maxint):
     return config
 
 def load_model(model_dir, model_weights=None):
-    args_json = json.load(open(model_dir + '/args.json'))
+    config_json = json.load(open(model_dir + '/config.json'))
     model_json = json.load(open(model_dir + '/model.json'))
-    model_json.update(args_json)
+    model_json.update(config_json)
 
     if 'model_cfg' in model_json:
         for k,v in model_json['model_cfg']:
@@ -339,7 +333,7 @@ def predict_with_min_margin_top_two(probs, target, current_word_target, margin=0
     for i in np.arange(0, len(preds)):
         pred = preds[i]
         prob = probs[i]
-        next_most_prob, most_prob = prob[np.argsort(prob)[[-2,-1]]]
+        next_most_prob, most_prob = prob[np.configort(prob)[[-2,-1]]]
 
         if most_prob - next_most_prob < margin:
             preds_with_margin[i] = current_word_target[i]
@@ -355,7 +349,7 @@ def predict_with_min_margin_vs_actual(probs, target, current_word_target, min_ma
     for i in np.arange(0, len(preds)):
         pred = preds[i]
         prob = probs[i]
-        most_prob = prob[np.argsort(prob)][-1]
+        most_prob = prob[np.configort(prob)][-1]
         actual_prob = prob[current_word_target[i]]
         margin = most_prob - actual_prob 
 
@@ -373,7 +367,7 @@ def predict_with_minmax_margin(probs, target, current_word_target, min_margin=0.
     for i in np.arange(0, len(preds)):
         pred = preds[i]
         prob = probs[i]
-        most_prob = prob[np.argsort(prob)][-1]
+        most_prob = prob[np.configort(prob)][-1]
         actual_prob = prob[current_word_target[i]]
         margin = most_prob - actual_prob 
 
